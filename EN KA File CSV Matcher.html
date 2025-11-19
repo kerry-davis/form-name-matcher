@@ -291,7 +291,10 @@
         <div id="comparisonResultsContainer" class="container" style="display: none;">
             <div class="section-header">
                 <h2>Matching Files</h2>
-                <button id="downloadMatched" class="button download-btn">Download CSV</button>
+                <div>
+                    <button id="downloadMatched" class="button download-btn">Download CSV</button>
+                    <button id="deleteMatched" class="button delete-btn">Delete Listed</button>
+                </div>
             </div>
             <div class="filter-container" id="matchFilterControls">
                 <label>
@@ -675,7 +678,7 @@
             }
 
             const filteredMatchingFiles = matchingFiles.filter(file => file && file.path && file.path.trim() !== '');
-            const filteredUnmatchedFiles = unmatchedFiles.filter(file => file && file.trim() !== '');
+            const filteredUnmatchedFiles = unmatchedFiles.filter(file => file && file.path && file.path.trim() !== '');
 
             return { matchingFiles: filteredMatchingFiles, unmatchedFiles: filteredUnmatchedFiles };
         }
