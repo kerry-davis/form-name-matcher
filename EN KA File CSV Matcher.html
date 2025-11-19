@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EN KA File CSV Matcher</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f4f6f9;
+            --bg-secondary: #ffffff;
+            --text-primary: #1a1a2e;
+            --text-secondary: #4b4b6a;
+            --accent-primary: #6a5acd;
+            --accent-secondary: #4a4a6a;
+            --button-primary: #4CAF50;
+            --button-secondary: #2196F3;
+            --button-danger: #FF6B6B;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --download-button: #FF9800;
+        }
+
+        html.dark-mode {
+            --bg-primary: #16213e;
+            --bg-secondary: #0f3460;
+            --text-primary: #e5e5e5;
+            --text-secondary: #c0c0c0;
+            --accent-primary: #6a5acd;
+            --accent-secondary: #7b68ee;
+            --button-primary: #388E3C;
+            --button-secondary: #1976D2;
+            --button-danger: #FF5252;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --download-button: #FF9800;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .toggle-icons {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .toggle-icons button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .toggle-icons button:hover {
+            opacity: 1;
+        }
+
+        .container {
+            background: var(--bg-secondary); /* Adjusted for better visibility in both modes */
+            /* backdrop-filter: blur(10px); */ /* Removed for broader compatibility if needed, can be re-added */
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            width: 100%;
+            max-width: 800px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--accent-primary);
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        h2 {
+            font-weight: 600;
+            margin-top: 30px;
+        }
+
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            color: white;
+            font-size: 1rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        
+        label.button {
+            display: inline-block;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            color: white;
+            text-align: center;
+            font-size: 1rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        .button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #selectFolder1, #submit { background-color: var(--button-primary); }
+        label[for="csvFileInput"] { background-color: var(--button-secondary); }
+        #reset { background-color: var(--button-danger); }
+        .download-btn { background-color: var(--download-button); }
+        .delete-btn { background-color: var(--button-danger); margin-left: 10px; }
+        
+        label[for="csvFileInput"]:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #fileList, #unmatchedFiles {
+            width: 100%;
+            height: 200px;
+            overflow-y: scroll;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+        }
+
+        #fileList p, #unmatchedFiles p {
+            margin: 0;
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #fileList p:last-child, #unmatchedFiles p:last-child {
+            border-bottom: none;
+        }
+
+        #selectedFolder1, #selectedCSV {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--accent-secondary);
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            word-wrap: break-word; /* Ensure long names wrap */
+        }
+
+        #loadingSpinner {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        #loadingSpinner p {
+            margin-top: 10px;
+            color: var(--text-secondary);
+        }
+
+        .status-message {
+            text-align: center;
+            margin: 10px 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .section-header h2 {
+            margin: 0;
+        }
+
+        .filter-container {
+            display: none;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .filter-container label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .filter-container input[type="radio"] {
+            accent-color: var(--accent-primary);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                /* margin: 0; */ /* Removed margin 0 for better spacing */
+                width: 100%;
+                padding: 20px;
+            }
+
+            .button-container {
+                flex-direction: column;
+            }
+
+            .button {
+                width: 100%;
+            }
+           
+            .section-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toggle-icons">
+        <button id="darkModeToggle">🌓</button> </div>
+
+    <div class="container">
+        <h1>EN KA File CSV Matcher</h1>
+
+        <div class="button-container">
+            <button id="selectFolder1" class="button">Select Network Folder</button>
+            <label for="csvFileInput" class="button">Select CSV File</label>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+        </div>
+
+        <div id="selectedFolder1"></div>
+        <div id="selectedCSV"></div>
+
+        <div class="button-container">
+            <button id="submit" class="button">Process Folder and CSV</button> <button id="reset" class="button">Reset</button>
+        </div>
+
+        <div id="loadingSpinner">
+            <img src="https://i.gifer.com/ZZ5H.gif" alt="Loading..." width="50" height="50">
+            <p>Processing...</p>
+        </div>
+    </div>
+
+        <div id="comparisonResultsContainer" class="container" style="display: none;">
+            <div class="section-header">
+                <h2>Matching Files</h2>
+                <button id="downloadMatched" class="button download-btn">Download CSV</button>
+            </div>
+            <div class="filter-container" id="matchFilterControls">
+                <label>
+                    <input type="radio" name="matchFilter" value="all" checked>
+                    Show All
+                </label>
+                <label>
+                    <input type="radio" name="matchFilter" value="prefix">
+                    Prefix Differs
+                </label>
+                <label>
+                    <input type="radio" name="matchFilter" value="company">
+                    Company Differs
+                </label>
+            </div>
+            <div id="fileList"></div>
+            <p id="noMatchMessage" class="status-message" style="display: none;">No matching files found.</p>
+            <p id="matchCount" class="status-message" style="display: none;">Total matched files: <span id="count"></span></p>
+
+        <div class="section-header">
+            <h2>Unmatched Files</h2>
+            <div>
+                <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
+                <button id="deleteUnmatched" class="button delete-btn">Delete All Unmatched</button>
+            </div>
+        </div>
+        <div id="unmatchedFiles"></div>
+        <p id="unmatchedCount" class="status-message" style="display: none;">Total unmatched files: <span id="unmatchedCountValue"></span></p>
+    </div>
+
+
+     <div id="processingTimeContainer" class="container" style="display: none;">
+         <p id="processingTime" class="status-message">Total processing time: <span id="time"></span></p>
+    </div>
+
+
+    <script>
+        let dirHandle1, csvData;
+        // Arrays to store the current results for CSV export
+        let currentMatchingFiles = [];
+        let currentUnmatchedFiles = [];
+
+        // --- UI Elements ---
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const selectFolder1Btn = document.getElementById('selectFolder1');
+        const csvFileInput = document.getElementById('csvFileInput');
+        const selectedFolder1Div = document.getElementById('selectedFolder1');
+        const selectedCSVDiv = document.getElementById('selectedCSV');
+        const submitBtn = document.getElementById('submit');
+        const resetBtn = document.getElementById('reset');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        // Comparison Results Elements
+        const comparisonResultsContainer = document.getElementById('comparisonResultsContainer');
+        const fileListDiv = document.getElementById('fileList');
+        const noMatchMessage = document.getElementById('noMatchMessage');
+        const matchCountMsg = document.getElementById('matchCount');
+        const matchCountSpan = document.getElementById('count');
+        const matchFilterControls = document.getElementById('matchFilterControls');
+        const matchFilterInputs = document.querySelectorAll('input[name="matchFilter"]');
+        const unmatchedFilesDiv = document.getElementById('unmatchedFiles');
+        const unmatchedCountMsg = document.getElementById('unmatchedCount');
+        const unmatchedCountSpan = document.getElementById('unmatchedCountValue');
+
+
+        // Processing Time Elements
+        const processingTimeContainer = document.getElementById('processingTimeContainer');
+        const processingTimeMsg = document.getElementById('processingTime');
+        const processingTimeSpan = document.getElementById('time');
+
+        // Download Buttons
+        const downloadMatchedBtn = document.getElementById('downloadMatched');
+        const downloadUnmatchedBtn = document.getElementById('downloadUnmatched');
+        const deleteMatchedBtn = document.getElementById('deleteMatched');
+        const deleteUnmatchedBtn = document.getElementById('deleteUnmatched');
+        let currentMatchFilter = 'all';
+
+        matchFilterInputs.forEach(input => {
+            input.addEventListener('change', (event) => {
+                if (event.target.checked) {
+                    currentMatchFilter = event.target.value;
+                    renderMatchingFiles();
+                }
+            });
+        });
+
+        // --- Dark Mode ---
+        function setDarkMode(isDark) {
+            document.documentElement.classList.toggle('dark-mode', isDark);
+            darkModeToggle.textContent = isDark ? '☀️' : '🌓'; // Update icon
+            localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            setDarkMode(!document.documentElement.classList.contains('dark-mode'));
+        });
+
+        // Initialize dark mode based on preference or system setting
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        const savedMode = localStorage.getItem('darkMode');
+        if (savedMode) {
+            setDarkMode(savedMode === 'enabled');
+        } else {
+            setDarkMode(prefersDark.matches);
+        }
+        prefersDark.addEventListener('change', (e) => {
+            if (!localStorage.getItem('darkMode')) { // Only respect system change if no manual override
+                 setDarkMode(e.matches);
+            }
+        });
+
+
+        // --- Folder Selection ---
+        async function selectFolder() {
+            try {
+                const dirHandle = await window.showDirectoryPicker();
+                dirHandle1 = dirHandle;
+                selectedFolder1Div.textContent = `Selected Folder: ${dirHandle1.name}`;
+                 // Reset results when a new folder is selected
+                resetResultsUI();
+            } catch (error) {
+                 // Handle errors, e.g., user cancellation
+                if (error.name !== 'AbortError') {
+                    console.error('Error selecting folder:', error);
+                    alert('An error occurred while selecting the folder.');
+                }
+            }
+        }
+
+
+        // Simple CSV parser
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            const headers = lines[0].split(',').map(header => header.replace(/"/g, '').trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                
+                const values = parseCSVLine(lines[i]);
+                const row = {};
+                
+                for (let j = 0; j < headers.length && j < values.length; j++) {
+                    row[headers[j]] = values[j].replace(/"/g, '').trim();
+                }
+                
+                data.push(row);
+            }
+            
+            return data;
+        }
+
+        // Helper to parse a single CSV line, handling quoted fields
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+                        // Double quotes inside quoted field
+                        current += '"';
+                        i++; // Skip next quote
+                    } else {
+                        // Toggle quote state
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            result.push(current);
+            return result;
+        }
+
+        const identifierRegex = /(KA|EN)\s*\d+/i;
+        const leadingIdentifierRegex = /^(KA|EN)\s*\d+\s*(?:-|–|_)?\s*/i;
+
+        function extractFileIdentifier(fileName) {
+            const match = fileName.match(identifierRegex);
+            return match ? match[0].replace(/\s+/g, '').toUpperCase() : null;
+        }
+
+        function extractCompanyNameFromFilename(fileName) {
+            const nameWithoutExtension = fileName.replace(/\.[^/.]+$/, '');
+            const withoutIdentifier = nameWithoutExtension.replace(leadingIdentifierRegex, '');
+            const cleaned = withoutIdentifier.replace(/[_]+/g, ' ').trim();
+            return cleaned || null;
+        }
+
+        function normalizeCompanyName(name) {
+            if (!name) return '';
+            return name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim()
+                .replace(/\s+/g, ' ');
+        }
+
+        function normalizeIdentifier(value) {
+            if (!value) return '';
+            return value.replace(/\s+/g, '').toUpperCase();
+        }
+
+        selectFolder1Btn.addEventListener('click', selectFolder);
+        
+        // Handle CSV file selection
+        csvFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const contents = await file.text();
+                
+                // Parse CSV - assuming first field is the identifier
+                csvData = parseCSV(contents);
+                selectedCSVDiv.textContent = `Selected CSV: ${file.name}`;
+                
+                // Reset results when a new CSV is selected
+                resetResultsUI();
+            } catch (error) {
+                console.error('Error reading CSV file:', error);
+                alert('An error occurred while reading the CSV file.');
+            }
+        });
+
+        // --- Reset ---
+         function resetResultsUI() {
+            fileListDiv.innerHTML = '';
+            unmatchedFilesDiv.innerHTML = '';
+            noMatchMessage.style.display = 'none';
+            matchCountMsg.style.display = 'none';
+            unmatchedCountMsg.style.display = 'none';
+            processingTimeContainer.style.display = 'none';
+            comparisonResultsContainer.style.display = 'none'; // Hide comparison container
+           
+            // Reset stored file arrays
+            currentMatchingFiles = [];
+            currentUnmatchedFiles = [];
+            currentMatchFilter = 'all';
+            matchFilterInputs.forEach(input => {
+                input.checked = input.value === 'all';
+            });
+            matchFilterControls.style.display = 'none';
+         }
+
+        resetBtn.addEventListener('click', () => {
+            dirHandle1 = null;
+            csvData = null;
+            selectedFolder1Div.textContent = '';
+            selectedCSVDiv.textContent = '';
+            resetResultsUI();
+            loadingSpinner.style.display = 'none'; // Ensure spinner is hidden
+			
+			//Reset the CSV file into to allow re-selection of the same file
+			csvFileInput.value = '';
+        });
+
+        // --- Processing ---
+        submitBtn.addEventListener('click', async () => {
+            if (!dirHandle1 || !csvData) {
+                alert('Please select both a folder and a CSV file first.');
+                return;
+            }
+
+            loadingSpinner.style.display = 'block';
+            resetResultsUI(); // Clear previous results before starting
+            const startTime = performance.now();
+
+            try {
+                // Compare folder contents with CSV data
+                const { matchingFiles, unmatchedFiles } = await compareFolderWithCSV(dirHandle1, csvData);
+                displayComparisonResults(matchingFiles, unmatchedFiles);
+
+                const endTime = performance.now();
+                displayProcessingTime(startTime, endTime);
+
+            } catch (error) {
+                console.error('Error processing folder and CSV:', error);
+                alert('An error occurred during processing.');
+                resetResultsUI(); // Clear potentially incomplete results on error
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        });
+
+        // --- Core Logic: Compare Folder with CSV ---
+        async function compareFolderWithCSV(folderHandle, csvData) {
+            const folderFiles = await getUniqueFilesInFolder(folderHandle);
+            const csvHeaders = Object.keys(csvData[0] || {});
+            const identifierField = csvHeaders[0] || '';
+            const companyField = csvHeaders[1] || '';
+            const caseNumberField = csvHeaders[2] || '';
+
+            const csvIdentifierMap = new Map();
+            const csvCompanyMap = new Map();
+
+            const normalizedCSVRows = csvData.map(row => {
+                const csvIdentifierValue = identifierField ? (row[identifierField] || '').trim() : '';
+                const csvCompanyValue = companyField ? (row[companyField] || '').trim() : '';
+                const csvCaseNumberValue = caseNumberField ? (row[caseNumberField] || '').trim() : '';
+                const normalizedId = normalizeIdentifier(csvIdentifierValue);
+                const normalizedCompany = normalizeCompanyName(csvCompanyValue);
+
+                return {
+                    row,
+                    csvIdentifierValue,
+                    csvCompanyValue,
+                    csvCaseNumberValue,
+                    normalizedId,
+                    normalizedCompany
+                };
+            });
+
+            for (const csvRow of normalizedCSVRows) {
+                if (csvRow.normalizedId) {
+                    csvIdentifierMap.set(csvRow.normalizedId, csvRow);
+                }
+
+                if (csvRow.normalizedCompany) {
+                    if (!csvCompanyMap.has(csvRow.normalizedCompany)) {
+                        csvCompanyMap.set(csvRow.normalizedCompany, []);
+                    }
+                    csvCompanyMap.get(csvRow.normalizedCompany).push(csvRow);
+                }
+            }
+
+            const matchingFiles = [];
+            const unmatchedFiles = [];
+
+            for (const file of folderFiles) {
+                let matchedRow = null;
+                let matchSource = '';
+                const normalizedFileCompany = file.normalizedCompany || '';
+
+                if (file.normalizedIdentifier && csvIdentifierMap.has(file.normalizedIdentifier)) {
+                    matchedRow = csvIdentifierMap.get(file.normalizedIdentifier);
+                    matchSource = 'identifier';
+                } else if (normalizedFileCompany) {
+                    const companyMatches = csvCompanyMap.get(normalizedFileCompany);
+                    if (companyMatches && companyMatches.length > 0) {
+                        matchedRow = companyMatches[0];
+                        matchSource = 'company';
+                    }
+                }
+
+                if (matchedRow) {
+                    const normalizedCsvIdentifier = matchedRow.normalizedId;
+                    const normalizedCsvCompany = matchedRow.normalizedCompany;
+                    const normalizedFileIdentifier = file.normalizedIdentifier || '';
+
+                    const identifierMismatch = normalizedCsvIdentifier !== normalizedFileIdentifier;
+                    const companyMismatch = normalizedCsvCompany !== normalizedFileCompany;
+
+                    matchingFiles.push({
+                        path: file.path,
+                        secondField: matchedRow.csvCompanyValue,
+                        caseNumber: matchedRow.csvCaseNumberValue,
+                        matchSource,
+                        fileIdentifier: file.identifier || '',
+                        csvIdentifier: matchedRow.csvIdentifierValue,
+                        fileCompany: file.companyName || '',
+                        csvCompany: matchedRow.csvCompanyValue,
+                        csvCaseNumber: matchedRow.csvCaseNumberValue,
+                        identifierMismatch,
+                        companyMismatch,
+                        handle: file.handle,
+                        parentHandle: file.parentHandle,
+                        name: file.name
+                    });
+                } else {
+                    unmatchedFiles.push(file);
+                }
+            }
+
+            const filteredMatchingFiles = matchingFiles.filter(file => file && file.path && file.path.trim() !== '');
+            const filteredUnmatchedFiles = unmatchedFiles.filter(file => file && file.trim() !== '');
+
+            return { matchingFiles: filteredMatchingFiles, unmatchedFiles: filteredUnmatchedFiles };
+        }
+
+        // Helper to get file metadata (identifier + company) from a folder
+        async function getUniqueFilesInFolder(dirHandle) {
+            const files = [];
+            const queue = [{handle: dirHandle, path: dirHandle.name}]; // Use a queue for iterative traversal with path tracking
+            const MAX_CONCURRENT_DIRS = 8;
+
+            async function processDirectory(handle, currentPath) {
+                try {
+                    const subdirectories = [];
+                    for await (const entry of handle.values()) {
+                        if (entry.kind === 'file') {
+                            const identifier = extractFileIdentifier(entry.name);
+                            const normalizedIdentifier = identifier ? normalizeIdentifier(identifier) : '';
+                            const companyName = extractCompanyNameFromFilename(entry.name);
+                            const normalizedCompany = companyName ? normalizeCompanyName(companyName) : '';
+                            if (identifier || companyName) {
+                                const fullPath = `${currentPath}/${entry.name}`; // Create full path
+                                files.push({
+                                    identifier,
+                                    normalizedIdentifier,
+                                    companyName,
+                                    normalizedCompany,
+                                    path: fullPath,
+                                    handle: entry,
+                                    parentHandle: handle,
+                                    name: entry.name
+                                });
+                            }
+                        } else if (entry.kind === 'directory') {
+                            subdirectories.push(entry);
+                        }
+                    }
+
+                    if (subdirectories.length > 0) {
+                        const permissionChecks = await Promise.all(subdirectories.map(async entry => {
+                            try {
+                                const permission = await entry.queryPermission({ mode: 'read' });
+                                return permission === 'granted' ? entry : null;
+                            } catch (error) {
+                                console.warn(`Skipping directory (permission error): ${entry.name}`);
+                                return null;
+                            }
+                        }));
+
+                        permissionChecks.forEach(entry => {
+                            if (entry) {
+                                queue.push({
+                                    handle: entry,
+                                    path: `${currentPath}/${entry.name}`
+                                });
+                            }
+                        });
+                    }
+                } catch (e) {
+                    // Permissions issue might throw here too on some systems/access levels
+                    console.error(`Error accessing contents of directory ${handle.name}: ${e}`);
+                }
+            }
+
+            while (queue.length > 0) {
+                const batch = queue.splice(0, MAX_CONCURRENT_DIRS);
+                await Promise.all(batch.map(({handle, path}) => processDirectory(handle, path)));
+            }
+
+            return files;
+        }
+
+
+
+        // --- UI Display Functions ---
+        function displayComparisonResults(matchingFiles, unmatchedFiles) {
+            comparisonResultsContainer.style.display = 'block'; // Show comparison section
+
+            // Store for CSV export
+            currentMatchingFiles = matchingFiles;
+            currentUnmatchedFiles = unmatchedFiles;
+           
+            renderMatchingFiles();
+            displayFiles(unmatchedFiles, 'unmatchedFiles');
+
+            // Update counts and messages for comparison results
+            if (matchingFiles.length > 0) {
+                matchCountMsg.style.display = 'block';
+                noMatchMessage.style.display = 'none';
+            } else {
+                noMatchMessage.style.display = 'block';
+                matchCountMsg.style.display = 'none';
+            }
+
+            if (unmatchedFiles.length > 0) {
+                unmatchedCountSpan.textContent = unmatchedFiles.length;
+                unmatchedCountMsg.style.display = 'block';
+            } else {
+                unmatchedCountMsg.style.display = 'none';
+            }
+
+            if (matchingFiles.length > 0) {
+                matchFilterControls.style.display = 'flex';
+            } else {
+                matchFilterControls.style.display = 'none';
+            }
+        }
+
+        function renderMatchingFiles() {
+            const renderedCount = displayFiles(currentMatchingFiles, 'fileList', currentMatchFilter);
+            updateMatchCountDisplay(renderedCount);
+        }
+
+        function updateMatchCountDisplay(renderedCount) {
+            if (currentMatchingFiles.length === 0) {
+                matchCountSpan.textContent = '0';
+                return;
+            }
+
+            if (currentMatchFilter === 'all') {
+                matchCountSpan.textContent = renderedCount;
+            } else {
+                matchCountSpan.textContent = `${renderedCount} of ${currentMatchingFiles.length}`;
+            }
+        }
+
+
+        function displayFiles(files, elementId, filterOption = 'all') {
+            const listElement = document.getElementById(elementId);
+            listElement.innerHTML = ''; // Clear previous content
+
+            if (!files || files.length === 0) {
+                const p = document.createElement('p');
+                // Customize message based on list type
+                if (elementId === 'fileList') p.textContent = 'No matching files found.';
+                else if (elementId === 'unmatchedFiles') p.textContent = 'No unmatched files found.';
+                else p.textContent = 'No files to display.';
+
+                p.style.color = 'var(--text-secondary)';
+                p.style.fontStyle = 'italic';
+                listElement.appendChild(p);
+                return 0;
+            }
+
+            let filesToRender = [...files];
+            if (elementId === 'fileList' && filterOption !== 'all') {
+                filesToRender = filesToRender.filter(file => {
+                    if (typeof file !== 'object') return false;
+                    if (filterOption === 'prefix') return !!file.identifierMismatch;
+                    if (filterOption === 'company') return !!file.companyMismatch;
+                    return true;
+                });
+            }
+
+            if (filesToRender.length === 0) {
+                const p = document.createElement('p');
+                if (elementId === 'fileList') {
+                    p.textContent = 'No matching files found for the selected filter.';
+                } else if (elementId === 'unmatchedFiles') {
+                    p.textContent = 'No unmatched files found.';
+                } else {
+                    p.textContent = 'No files to display.';
+                }
+                p.style.color = 'var(--text-secondary)';
+                p.style.fontStyle = 'italic';
+                listElement.appendChild(p);
+                return 0;
+            }
+
+            // Sort files alphabetically for consistent display
+            filesToRender.sort((a, b) => {
+                // Handle both string paths and objects with path property
+                const pathA = typeof a === 'string' ? a : a.path || '';
+                const pathB = typeof b === 'string' ? b : b.path || '';
+                return pathA.localeCompare(pathB);
+            });
+
+            const fragment = document.createDocumentFragment();
+
+            for (const file of filesToRender) {
+                if (file) {
+                    const p = document.createElement('p');
+                    
+                    // Handle both string paths (for unmatched files) and objects (for matched files)
+                    if (typeof file === 'string') {
+                        // Unmatched files are just strings
+                        if (file.trim() !== '') {
+                            p.textContent = file;
+                            listElement.appendChild(p);
+                        }
+                    } else if (file.path && file.path.trim() !== '') {
+                        const infoSegments = [];
+                        if (file.secondField) {
+                            infoSegments.push(file.secondField);
+                        }
+                        if (file.caseNumber) {
+                            infoSegments.push(`Case #: ${file.caseNumber}`);
+                        }
+                        if (file.matchSource === 'identifier') {
+                            infoSegments.push('matched by prefix');
+                        } else if (file.matchSource === 'company') {
+                            infoSegments.push('matched by company name');
+                        }
+
+                        const mismatchSegments = [];
+                        if (file.identifierMismatch) {
+                            mismatchSegments.push(`prefix differs (file: ${file.fileIdentifier || 'n/a'}, csv: ${file.csvIdentifier || 'n/a'})`);
+                        }
+                        if (file.companyMismatch) {
+                            mismatchSegments.push(`company differs (file: ${file.fileCompany || 'n/a'}, csv: ${file.csvCompany || 'n/a'})`);
+                        }
+
+                        let text = file.path;
+                        if (infoSegments.length > 0) {
+                            text += ` (${infoSegments.join(' | ')})`;
+                        }
+                        if (mismatchSegments.length > 0) {
+                            text += ` ⚠ ${mismatchSegments.join('; ')}`;
+                        }
+
+                        p.textContent = text;
+                        fragment.appendChild(p);
+                    }
+                }
+            }
+            listElement.appendChild(fragment);
+            return filesToRender.length;
+        }
+
+        function displayProcessingTime(startTime, endTime) {
+            const totalTimeInSeconds = (endTime - startTime) / 1000;
+            const hours = Math.floor(totalTimeInSeconds / 3600);
+            const minutes = Math.floor((totalTimeInSeconds % 3600) / 60);
+            const seconds = (totalTimeInSeconds % 60).toFixed(2);
+
+            processingTimeSpan.textContent = `${hours > 0 ? hours + 'h ' : ''}${minutes > 0 ? minutes + 'm ' : ''}${seconds}s`;
+            processingTimeContainer.style.display = 'block'; // Show the time container
+        }
+
+        // --- CSV Export Functions ---
+       
+        // Helper function to convert array of file paths to CSV format
+        function filterMatchingFiles(fileArray, filterOption) {
+            if (!fileArray || filterOption === 'all') {
+                return fileArray || [];
+            }
+
+            return fileArray.filter(file => {
+                if (typeof file !== 'object') return false;
+                if (filterOption === 'prefix') return !!file.identifierMismatch;
+                if (filterOption === 'company') return !!file.companyMismatch;
+                return true;
+            });
+        }
+
+        function convertToCSV(fileArray, filterOption = 'all') {
+            if (!fileArray || fileArray.length === 0) {
+                return '';
+            }
+
+            const filteredArray = filterMatchingFiles(fileArray, filterOption);
+            if (filteredArray.length === 0) {
+                return '';
+            }
+
+            const firstItem = filteredArray[0];
+            const hasMatchMetadata = typeof firstItem === 'object' && firstItem !== null && ('matchSource' in firstItem || 'fileIdentifier' in firstItem);
+            const hasSecondField = typeof firstItem === 'object' && firstItem !== null && 'secondField' in firstItem;
+            
+            let csvContent;
+            if (hasMatchMetadata) {
+                csvContent = "File Path,Case Number,Match Source,File Prefix,CSV Prefix,File Company,CSV Company,Prefix Matches,Company Matches\n";
+                filteredArray.forEach(fileObj => {
+                    const row = [
+                        fileObj.path || '',
+                        fileObj.caseNumber || fileObj.csvCaseNumber || '',
+                        fileObj.matchSource || '',
+                        fileObj.fileIdentifier || '',
+                        fileObj.csvIdentifier || '',
+                        fileObj.fileCompany || '',
+                        fileObj.csvCompany || '',
+                        fileObj.identifierMismatch ? 'No' : 'Yes',
+                        fileObj.companyMismatch ? 'No' : 'Yes'
+                    ];
+                    const escapedRow = row.map(value => `"${String(value).replace(/"/g, '""')}"`);
+                    csvContent += `${escapedRow.join(',')}\n`;
+                });
+            } else if (hasSecondField) {
+                // Include both file path and case number from CSV
+                csvContent = "File Path,Case Number\n";
+                filteredArray.forEach(fileObj => {
+                    // Escape quotes and wrap in quotes to handle commas in paths
+                    const escapedPath = (fileObj.path || '').replace(/"/g, '""');
+                    const escapedCaseNumber = fileObj.secondField ? fileObj.secondField.replace(/"/g, '""') : '';
+                    csvContent += `"${escapedPath}","${escapedCaseNumber}"\n`;
+                });
+            } else {
+                // Just file paths (for unmatched files)
+                csvContent = "File Path\n";
+                filteredArray.forEach(fileObj => {
+                    // Escape quotes and wrap in quotes to handle commas in paths
+                    const path = (typeof fileObj === 'string') ? fileObj : (fileObj.path || '');
+                    const escapedPath = path.replace(/"/g, '""');
+                    csvContent += `"${escapedPath}"\n`;
+                });
+            }
+           
+            return csvContent;
+        }
+       
+        // Function to trigger download of CSV file
+        function downloadCSV(csvContent, filename) {
+            // Create a Blob with the CSV content
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+           
+            // Create a download link
+            const link = document.createElement('a');
+           
+            // Create a URL for the Blob
+            const url = URL.createObjectURL(blob);
+           
+            // Set link properties
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+           
+            // Add link to document, click it, and remove it
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+           
+            // Clean up the URL object
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 100);
+        }
+       
+        // Event listeners for download buttons
+        downloadMatchedBtn.addEventListener('click', () => {
+            if (currentMatchingFiles.length === 0) {
+                alert('No matching files to download.');
+                return;
+            }
+           
+            const csvContent = convertToCSV(currentMatchingFiles, currentMatchFilter);
+            if (!csvContent) {
+                alert('No matching files to download for the selected filter.');
+                return;
+            }
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadCSV(csvContent, `matched-files-${timestamp}.csv`);
+        });
+       
+        downloadUnmatchedBtn.addEventListener('click', () => {
+            if (currentUnmatchedFiles.length === 0) {
+                alert('No unmatched files to download.');
+                return;
+            }
+           
+            const csvContent = convertToCSV(currentUnmatchedFiles);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadCSV(csvContent, `unmatched-files-${timestamp}.csv`);
+        });
+
+        // --- Deletion Logic ---
+        
+        async function deleteFiles(filesToDelete) {
+            if (!filesToDelete || filesToDelete.length === 0) {
+                alert('No files to delete.');
+                return;
+            }
+
+            const confirmed = confirm(`Are you sure you want to delete ${filesToDelete.length} files? This action cannot be undone.`);
+            if (!confirmed) return;
+
+            let deletedCount = 0;
+            let errorCount = 0;
+
+            loadingSpinner.style.display = 'block';
+            const originalText = loadingSpinner.querySelector('p').textContent;
+            loadingSpinner.querySelector('p').textContent = 'Deleting files...';
+
+            try {
+                for (const file of filesToDelete) {
+                    try {
+                        if (file.parentHandle && file.name) {
+                            await file.parentHandle.removeEntry(file.name);
+                            deletedCount++;
+                        } else {
+                            console.warn('Missing file handle for deletion:', file);
+                            errorCount++;
+                        }
+                    } catch (err) {
+                        console.error(`Failed to delete ${file.name}:`, err);
+                        errorCount++;
+                    }
+                }
+            } finally {
+                loadingSpinner.querySelector('p').textContent = originalText;
+                loadingSpinner.style.display = 'none';
+            }
+
+            alert(`Deleted ${deletedCount} files.${errorCount > 0 ? ` Failed to delete ${errorCount} files.` : ''}`);
+
+            // Refresh results
+            if (dirHandle1 && csvData) {
+                submitBtn.click();
+            }
+        }
+
+        async function ensureWritePermission(handle) {
+            const options = { mode: 'readwrite' };
+            if ((await handle.queryPermission(options)) === 'granted') {
+                return true;
+            }
+            if ((await handle.requestPermission(options)) === 'granted') {
+                return true;
+            }
+            return false;
+        }
+
+        deleteMatchedBtn.addEventListener('click', async () => {
+             const filesToDelete = filterMatchingFiles(currentMatchingFiles, currentMatchFilter);
+             if (filesToDelete.length === 0) {
+                 alert('No matching files to delete for the selected filter.');
+                 return;
+             }
+             
+             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
+                 alert('Permission to delete files was denied.');
+                 return;
+             }
+             
+             await deleteFiles(filesToDelete);
+        });
+
+        deleteUnmatchedBtn.addEventListener('click', async () => {
+             const filesToDelete = currentUnmatchedFiles;
+             if (filesToDelete.length === 0) {
+                 alert('No unmatched files to delete.');
+                 return;
+             }
+
+             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
+                 alert('Permission to delete files was denied.');
+                 return;
+             }
+
+             await deleteFiles(filesToDelete);
+        });
+       
+
+    </script>
+</body>
+</html>

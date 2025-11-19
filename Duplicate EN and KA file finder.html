@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplicate EN and KA file finder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f4f6f9;
+            --bg-secondary: #ffffff;
+            --text-primary: #1a1a2e;
+            --text-secondary: #4b4b6a;
+            --accent-primary: #6a5acd;
+            --accent-secondary: #4a4a6a;
+            --button-primary: #4CAF50;
+            --button-secondary: #2196F3;
+            --button-danger: #FF6B6B;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --download-button: #FF9800;
+        }
+
+        html.dark-mode {
+            --bg-primary: #16213e;
+            --bg-secondary: #0f3460;
+            --text-primary: #e5e5e5;
+            --text-secondary: #c0c0c0;
+            --accent-primary: #6a5acd;
+            --accent-secondary: #7b68ee;
+            --button-primary: #388E3C;
+            --button-secondary: #1976D2;
+            --button-danger: #FF5252;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --download-button: #FF9800;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .toggle-icons {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .toggle-icons button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .toggle-icons button:hover {
+            opacity: 1;
+        }
+
+        .container {
+            background: var(--bg-secondary); /* Adjusted for better visibility in both modes */
+            /* backdrop-filter: blur(10px); */ /* Removed for broader compatibility if needed, can be re-added */
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            width: 100%;
+            max-width: 800px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--accent-primary);
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        h2 {
+            font-weight: 600;
+            margin-top: 30px;
+        }
+
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #selectFolder1, #submit { background-color: var(--button-primary); }
+        #selectFolder2 { background-color: var(--button-secondary); }
+        #reset { background-color: var(--button-danger); }
+        .download-btn { background-color: var(--download-button); }
+
+        #fileList, #unmatchedFiles, #duplicateFileList { /* Added #duplicateFileList */
+            width: 100%;
+            height: 200px;
+            overflow-y: scroll;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+        }
+
+        #fileList p, #unmatchedFiles p, #duplicateFileList p { /* Added #duplicateFileList */
+            margin: 0;
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #fileList p:last-child, #unmatchedFiles p:last-child, #duplicateFileList p:last-child { /* Added #duplicateFileList */
+            border-bottom: none;
+        }
+
+        #selectedFolder1, #selectedFolder2 {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--accent-secondary);
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            word-wrap: break-word; /* Ensure long names wrap */
+        }
+
+        #loadingSpinner {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        #loadingSpinner p {
+            margin-top: 10px;
+            color: var(--text-secondary);
+        }
+
+        .status-message {
+            text-align: center;
+            margin: 10px 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* Added specific styles for duplicate section */
+        #duplicateFilesContainer {
+            display: none; /* Hide by default */
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .section-header h2 {
+            margin: 0;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                /* margin: 0; */ /* Removed margin 0 for better spacing */
+                width: 100%;
+                padding: 20px;
+            }
+
+            .button-container {
+                flex-direction: column;
+            }
+
+            .button {
+                width: 100%;
+            }
+           
+            .section-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toggle-icons">
+        <button id="darkModeToggle">🌓</button> </div>
+
+    <div class="container">
+        <h1>Duplicate EN and KA file finder</h1>
+
+        <div class="button-container">
+            <button id="selectFolder1" class="button">Select Network Folder 1</button>
+            <button id="selectFolder2" class="button">Select Network Folder 2</button>
+        </div>
+
+        <div id="selectedFolder1"></div>
+        <div id="selectedFolder2"></div>
+
+        <div class="button-container">
+            <button id="submit" class="button">Process Folders</button> <button id="reset" class="button">Reset</button>
+        </div>
+
+        <div id="loadingSpinner">
+            <img src="https://i.gifer.com/ZZ5H.gif" alt="Loading..." width="50" height="50">
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <div id="comparisonResultsContainer" class="container" style="display: none;">
+        <div class="section-header">
+            <h2>Matching Files</h2>
+            <button id="downloadMatched" class="button download-btn">Download CSV</button>
+        </div>
+        <div id="fileList"></div>
+        <p id="noMatchMessage" class="status-message" style="display: none;">No matching files found.</p>
+        <p id="matchCount" class="status-message" style="display: none;">Total matched files: <span id="count"></span></p>
+
+        <div class="section-header">
+            <h2>Unmatched Files</h2>
+            <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
+        </div>
+        <div id="unmatchedFiles"></div>
+        <p id="unmatchedCount" class="status-message" style="display: none;">Total unmatched files: <span id="unmatchedCountValue"></span></p>
+    </div>
+
+    <div id="duplicateFilesContainer" class="container" style="display: none;">
+        <div class="section-header">
+            <h2>Duplicate Files (within the selected folder)</h2>
+            <button id="downloadDuplicates" class="button download-btn">Download CSV</button>
+        </div>
+        <div id="duplicateFileList"></div>
+        <p id="noDuplicatesMessage" class="status-message" style="display: none;">No duplicate files found.</p>
+        <p id="duplicateCount" class="status-message" style="display: none;">Total duplicate file identifiers found: <span id="duplicateCountValue"></span></p>
+    </div>
+
+     <div id="processingTimeContainer" class="container" style="display: none;">
+         <p id="processingTime" class="status-message">Total processing time: <span id="time"></span></p>
+    </div>
+
+
+    <script>
+        let dirHandle1, dirHandle2;
+        // Arrays to store the current results for CSV export
+        let currentMatchingFiles = [];
+        let currentUnmatchedFiles = [];
+        let currentDuplicateFiles = [];
+
+        // --- UI Elements ---
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const selectFolder1Btn = document.getElementById('selectFolder1');
+        const selectFolder2Btn = document.getElementById('selectFolder2');
+        const selectedFolder1Div = document.getElementById('selectedFolder1');
+        const selectedFolder2Div = document.getElementById('selectedFolder2');
+        const submitBtn = document.getElementById('submit');
+        const resetBtn = document.getElementById('reset');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        // Comparison Results Elements
+        const comparisonResultsContainer = document.getElementById('comparisonResultsContainer');
+        const fileListDiv = document.getElementById('fileList');
+        const noMatchMessage = document.getElementById('noMatchMessage');
+        const matchCountMsg = document.getElementById('matchCount');
+        const matchCountSpan = document.getElementById('count');
+        const unmatchedFilesDiv = document.getElementById('unmatchedFiles');
+        const unmatchedCountMsg = document.getElementById('unmatchedCount');
+        const unmatchedCountSpan = document.getElementById('unmatchedCountValue');
+
+        // Duplicate Results Elements
+        const duplicateFilesContainer = document.getElementById('duplicateFilesContainer');
+        const duplicateFileListDiv = document.getElementById('duplicateFileList');
+        const noDuplicatesMessage = document.getElementById('noDuplicatesMessage');
+        const duplicateCountMsg = document.getElementById('duplicateCount');
+        const duplicateCountSpan = document.getElementById('duplicateCountValue');
+
+        // Processing Time Elements
+        const processingTimeContainer = document.getElementById('processingTimeContainer');
+        const processingTimeMsg = document.getElementById('processingTime');
+        const processingTimeSpan = document.getElementById('time');
+
+        // Download Buttons
+        const downloadMatchedBtn = document.getElementById('downloadMatched');
+        const downloadUnmatchedBtn = document.getElementById('downloadUnmatched');
+        const downloadDuplicatesBtn = document.getElementById('downloadDuplicates');
+        const identifierRegex = /(KA|EN)\s*\d+/i;
+
+        function extractFileIdentifier(fileName) {
+            const match = fileName.match(identifierRegex);
+            return match ? match[0].replace(/\s+/g, '') : null;
+        }
+
+        function normalizeIdentifier(value) {
+            if (!value) return '';
+            return value.replace(/\s+/g, '').toUpperCase();
+        }
+
+        // --- Dark Mode ---
+        function setDarkMode(isDark) {
+            document.documentElement.classList.toggle('dark-mode', isDark);
+            darkModeToggle.textContent = isDark ? '☀️' : '🌓'; // Update icon
+            localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            setDarkMode(!document.documentElement.classList.contains('dark-mode'));
+        });
+
+        // Initialize dark mode based on preference or system setting
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        const savedMode = localStorage.getItem('darkMode');
+        if (savedMode) {
+            setDarkMode(savedMode === 'enabled');
+        } else {
+            setDarkMode(prefersDark.matches);
+        }
+        prefersDark.addEventListener('change', (e) => {
+            if (!localStorage.getItem('darkMode')) { // Only respect system change if no manual override
+                 setDarkMode(e.matches);
+            }
+        });
+
+
+        // --- Folder Selection ---
+        async function selectFolder(folderNum) {
+            try {
+                const dirHandle = await window.showDirectoryPicker();
+                if (folderNum === 1) {
+                    dirHandle1 = dirHandle;
+                    selectedFolder1Div.textContent = `Selected Folder 1: ${dirHandle1.name}`;
+                } else {
+                    dirHandle2 = dirHandle;
+                    selectedFolder2Div.textContent = `Selected Folder 2: ${dirHandle2.name}`;
+                }
+                 // Reset results when a new folder is selected
+                resetResultsUI();
+            } catch (error) {
+                 // Handle errors, e.g., user cancellation
+                if (error.name !== 'AbortError') {
+                    console.error('Error selecting folder:', error);
+                    alert('An error occurred while selecting the folder.');
+                }
+            }
+        }
+
+        selectFolder1Btn.addEventListener('click', () => selectFolder(1));
+        selectFolder2Btn.addEventListener('click', () => selectFolder(2));
+
+        // --- Reset ---
+         function resetResultsUI() {
+            fileListDiv.innerHTML = '';
+            unmatchedFilesDiv.innerHTML = '';
+            duplicateFileListDiv.innerHTML = ''; // Clear duplicates
+            noMatchMessage.style.display = 'none';
+            matchCountMsg.style.display = 'none';
+            unmatchedCountMsg.style.display = 'none';
+            noDuplicatesMessage.style.display = 'none'; // Hide duplicate message
+            duplicateCountMsg.style.display = 'none'; // Hide duplicate count
+            processingTimeContainer.style.display = 'none';
+            comparisonResultsContainer.style.display = 'none'; // Hide comparison container
+            duplicateFilesContainer.style.display = 'none'; // Hide duplicate container
+           
+            // Reset stored file arrays
+            currentMatchingFiles = [];
+            currentUnmatchedFiles = [];
+            currentDuplicateFiles = [];
+         }
+
+        resetBtn.addEventListener('click', () => {
+            dirHandle1 = null;
+            dirHandle2 = null;
+            selectedFolder1Div.textContent = '';
+            selectedFolder2Div.textContent = '';
+            resetResultsUI();
+            loadingSpinner.style.display = 'none'; // Ensure spinner is hidden
+        });
+
+        // --- Processing ---
+        submitBtn.addEventListener('click', async () => {
+            if (!dirHandle1 || !dirHandle2) {
+                alert('Please select both folders first.');
+                return;
+            }
+
+            loadingSpinner.style.display = 'block';
+            resetResultsUI(); // Clear previous results before starting
+            const startTime = performance.now();
+
+            try {
+                 // *** NEW: Check if the same directory was selected ***
+                const sameDirectory = await dirHandle1.isSameEntry(dirHandle2);
+
+                if (sameDirectory) {
+                    submitBtn.textContent = 'Find Duplicates'; // Update button text
+                    // Find duplicates within the single selected directory
+                    await findAndDisplayDuplicates(dirHandle1);
+
+                } else {
+                     submitBtn.textContent = 'Compare Folders'; // Update button text
+                    // Original comparison logic for two different directories
+                    const { matchingFiles, unmatchedFiles } = await compareFolders(dirHandle1, dirHandle2);
+                    displayComparisonResults(matchingFiles, unmatchedFiles);
+                }
+
+                const endTime = performance.now();
+                displayProcessingTime(startTime, endTime);
+
+            } catch (error) {
+                console.error('Error processing folders:', error);
+                alert('An error occurred during processing.');
+                resetResultsUI(); // Clear potentially incomplete results on error
+            } finally {
+                loadingSpinner.style.display = 'none';
+                 // Reset button text to generic after processing
+                 setTimeout(() => { submitBtn.textContent = 'Process Folders'; }, 500);
+            }
+        });
+
+        // --- Core Logic: Folder Comparison ---
+        async function compareFolders(handle1, handle2) {
+            const filesInFolder1 = await getUniqueFilesInFolder(handle1); // Map of normalized ID -> path
+            const filesInFolder2 = await getUniqueFilesInFolder(handle2);
+
+            const matchedIds = new Set();
+            const matchingFiles = [];
+            const unmatchedFiles = []; // Will hold files from folder 1 not in 2, and vice-versa
+
+            for (const [fileId, filePath] of filesInFolder1.entries()) {
+                if (filesInFolder2.has(fileId)) {
+                    matchingFiles.push(filePath);
+                    matchedIds.add(fileId);
+                } else {
+                    unmatchedFiles.push(filePath);
+                }
+            }
+
+            for (const [fileId, filePath] of filesInFolder2.entries()) {
+                if (!matchedIds.has(fileId)) {
+                    unmatchedFiles.push(filePath);
+                }
+            }
+
+            const filteredMatchingFiles = matchingFiles.filter(file => file && file.trim() !== '');
+            const filteredUnmatchedFiles = unmatchedFiles.filter(file => file && file.trim() !== '');
+
+            return { matchingFiles: filteredMatchingFiles, unmatchedFiles: filteredUnmatchedFiles };
+        }
+
+        async function collectFilesFromFolder(dirHandle) {
+            const files = [];
+            const queue = [{handle: dirHandle, path: dirHandle.name}];
+            const MAX_CONCURRENT_DIRS = 8;
+
+            async function processDirectory(handle, currentPath) {
+                try {
+                    const subdirectories = [];
+                    for await (const entry of handle.values()) {
+                        if (entry.kind === 'file') {
+                            const identifier = extractFileIdentifier(entry.name);
+                            if (identifier) {
+                                const normalizedIdentifier = normalizeIdentifier(identifier);
+                                if (normalizedIdentifier) {
+                                    const fullPath = `${currentPath}/${entry.name}`;
+                                    files.push({
+                                        identifier,
+                                        normalizedIdentifier,
+                                        path: fullPath
+                                    });
+                                }
+                            }
+                        } else if (entry.kind === 'directory') {
+                            subdirectories.push(entry);
+                        }
+                    }
+
+                    if (subdirectories.length > 0) {
+                        const permissionChecks = await Promise.all(subdirectories.map(async entry => {
+                            try {
+                                const permission = await entry.queryPermission({ mode: 'read' });
+                                return permission === 'granted' ? entry : null;
+                            } catch (error) {
+                                console.warn(`Skipping directory (permission error): ${entry.name}`);
+                                return null;
+                            }
+                        }));
+
+                        permissionChecks.forEach(entry => {
+                            if (entry) {
+                                queue.push({
+                                    handle: entry,
+                                    path: `${currentPath}/${entry.name}`
+                                });
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error accessing contents of directory ${handle.name}: ${error}`);
+                }
+            }
+
+            while (queue.length > 0) {
+                const batch = queue.splice(0, MAX_CONCURRENT_DIRS);
+                await Promise.all(batch.map(({handle, path}) => processDirectory(handle, path)));
+            }
+
+            return files;
+        }
+
+        // Helper to get unique file identifiers (KA/EN numbers) from a folder
+        async function getUniqueFilesInFolder(dirHandle) {
+            const files = await collectFilesFromFolder(dirHandle);
+            const fileMap = new Map();
+            for (const file of files) {
+                if (file.normalizedIdentifier && !fileMap.has(file.normalizedIdentifier)) {
+                    fileMap.set(file.normalizedIdentifier, file.path);
+                }
+            }
+            return fileMap;
+        }
+
+        // --- Core Logic: Duplicate Finding (NEW) ---
+
+        async function findAndDisplayDuplicates(dirHandle) {
+            duplicateFilesContainer.style.display = 'block'; // Show duplicate section
+            comparisonResultsContainer.style.display = 'none'; // Hide comparison section
+
+            const allFiles = await collectFilesFromFolder(dirHandle); // Get ALL identifiers with paths
+            const duplicateIdentifiers = findDuplicates(allFiles); // Find duplicates among them
+
+            // Store for CSV export
+            currentDuplicateFiles = duplicateIdentifiers;
+           
+            displayFiles(duplicateIdentifiers, 'duplicateFileList'); // Display in the new list
+
+            if (duplicateIdentifiers.length > 0) {
+                duplicateCountSpan.textContent = duplicateIdentifiers.length;
+                duplicateCountMsg.style.display = 'block';
+                noDuplicatesMessage.style.display = 'none';
+            } else {
+                noDuplicatesMessage.style.display = 'block';
+                duplicateCountMsg.style.display = 'none';
+                // Optionally display a "no duplicates" message inside the list area
+                displayFiles([], 'duplicateFileList');
+            }
+        }
+
+        // Helper to find duplicates in a list of identifiers
+        function findDuplicates(fileMetadata) {
+            const idMap = new Map(); // Map to track ID -> paths
+           
+            for (const file of fileMetadata) {
+                if (!file.normalizedIdentifier) continue;
+                if (!idMap.has(file.normalizedIdentifier)) {
+                    idMap.set(file.normalizedIdentifier, []);
+                }
+                idMap.get(file.normalizedIdentifier).push(file.path);
+            }
+           
+            const duplicatePaths = [];
+            for (const paths of idMap.values()) {
+                if (paths.length > 1) {
+                    duplicatePaths.push(...paths);
+                }
+            }
+           
+            return duplicatePaths.sort((a, b) => a.localeCompare(b)); // Return sorted array of paths with duplicate IDs
+        }
+
+        // --- UI Display Functions ---
+        function displayComparisonResults(matchingFiles, unmatchedFiles) {
+            comparisonResultsContainer.style.display = 'block'; // Show comparison section
+            duplicateFilesContainer.style.display = 'none'; // Hide duplicate section
+
+            // Store for CSV export
+            currentMatchingFiles = matchingFiles;
+            currentUnmatchedFiles = unmatchedFiles;
+           
+            displayFiles(matchingFiles, 'fileList');
+            displayFiles(unmatchedFiles, 'unmatchedFiles');
+
+            // Update counts and messages for comparison results
+            if (matchingFiles.length > 0) {
+                matchCountSpan.textContent = matchingFiles.length;
+                matchCountMsg.style.display = 'block';
+                noMatchMessage.style.display = 'none';
+            } else {
+                noMatchMessage.style.display = 'block';
+                matchCountMsg.style.display = 'none';
+            }
+
+            if (unmatchedFiles.length > 0) {
+                unmatchedCountSpan.textContent = unmatchedFiles.length;
+                unmatchedCountMsg.style.display = 'block';
+            } else {
+                unmatchedCountMsg.style.display = 'none';
+            }
+        }
+
+
+        function displayFiles(files, elementId) {
+            const listElement = document.getElementById(elementId);
+            listElement.innerHTML = ''; // Clear previous content
+
+            if (!files || files.length === 0) {
+                const p = document.createElement('p');
+                if (elementId === 'fileList') p.textContent = 'No matching files found.';
+                else if (elementId === 'unmatchedFiles') p.textContent = 'No unmatched files found.';
+                else if (elementId === 'duplicateFileList') p.textContent = 'No duplicate files found.';
+                else p.textContent = 'No files to display.';
+
+                p.style.color = 'var(--text-secondary)';
+                p.style.fontStyle = 'italic';
+                listElement.appendChild(p);
+                return;
+            }
+
+            const filesToRender = files
+                .filter(file => file && typeof file === 'string' && file.trim() !== '')
+                .sort((a, b) => a.localeCompare(b));
+
+            if (filesToRender.length === 0) {
+                const p = document.createElement('p');
+                if (elementId === 'fileList') p.textContent = 'No matching files found.';
+                else if (elementId === 'unmatchedFiles') p.textContent = 'No unmatched files found.';
+                else if (elementId === 'duplicateFileList') p.textContent = 'No duplicate files found.';
+                else p.textContent = 'No files to display.';
+
+                p.style.color = 'var(--text-secondary)';
+                p.style.fontStyle = 'italic';
+                listElement.appendChild(p);
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            for (const file of filesToRender) {
+                const p = document.createElement('p');
+                p.textContent = file;
+                fragment.appendChild(p);
+            }
+            listElement.appendChild(fragment);
+        }
+
+        function displayProcessingTime(startTime, endTime) {
+            const totalTimeInSeconds = (endTime - startTime) / 1000;
+            const hours = Math.floor(totalTimeInSeconds / 3600);
+            const minutes = Math.floor((totalTimeInSeconds % 3600) / 60);
+            const seconds = (totalTimeInSeconds % 60).toFixed(2);
+
+            processingTimeSpan.textContent = `${hours > 0 ? hours + 'h ' : ''}${minutes > 0 ? minutes + 'm ' : ''}${seconds}s`;
+            processingTimeContainer.style.display = 'block'; // Show the time container
+        }
+
+        // --- CSV Export Functions ---
+       
+        // Helper function to convert array of file paths to CSV format
+        function convertToCSV(fileArray) {
+            // Add header row
+            let csvContent = "File Path\n";
+           
+            // Add each file path as a row
+            fileArray.forEach(filePath => {
+                // Escape quotes and wrap in quotes to handle commas in paths
+                const escapedPath = filePath.replace(/"/g, '""');
+                csvContent += `"${escapedPath}"\n`;
+            });
+           
+            return csvContent;
+        }
+       
+        // Function to trigger download of CSV file
+        function downloadCSV(csvContent, filename) {
+            // Create a Blob with the CSV content
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+           
+            // Create a download link
+            const link = document.createElement('a');
+           
+            // Create a URL for the Blob
+            const url = URL.createObjectURL(blob);
+           
+            // Set link properties
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+           
+            // Add link to document, click it, and remove it
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+           
+            // Clean up the URL object
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 100);
+        }
+       
+        // Event listeners for download buttons
+        downloadMatchedBtn.addEventListener('click', () => {
+            if (currentMatchingFiles.length === 0) {
+                alert('No matching files to download.');
+                return;
+            }
+           
+            const csvContent = convertToCSV(currentMatchingFiles);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadCSV(csvContent, `matched-files-${timestamp}.csv`);
+        });
+       
+        downloadUnmatchedBtn.addEventListener('click', () => {
+            if (currentUnmatchedFiles.length === 0) {
+                alert('No unmatched files to download.');
+                return;
+            }
+           
+            const csvContent = convertToCSV(currentUnmatchedFiles);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadCSV(csvContent, `unmatched-files-${timestamp}.csv`);
+        });
+       
+        downloadDuplicatesBtn.addEventListener('click', () => {
+            if (currentDuplicateFiles.length === 0) {
+                alert('No duplicate files to download.');
+                return;
+            }
+           
+            const csvContent = convertToCSV(currentDuplicateFiles);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadCSV(csvContent, `duplicate-files-${timestamp}.csv`);
+        });
+
+    </script>
+</body>
+</html>
