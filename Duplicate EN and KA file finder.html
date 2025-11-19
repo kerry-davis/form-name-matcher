@@ -131,6 +131,7 @@
         #selectFolder2 { background-color: var(--button-secondary); }
         #reset { background-color: var(--button-danger); }
         .download-btn { background-color: var(--download-button); }
+        .delete-btn { background-color: var(--button-danger); margin-left: 10px; }
 
         #fileList, #unmatchedFiles, #duplicateFileList { /* Added #duplicateFileList */
             width: 100%;
@@ -248,7 +249,10 @@
     <div id="comparisonResultsContainer" class="container" style="display: none;">
         <div class="section-header">
             <h2>Matching Files</h2>
-            <button id="downloadMatched" class="button download-btn">Download CSV</button>
+            <div>
+                <button id="downloadMatched" class="button download-btn">Download CSV</button>
+                <button id="deleteMatched" class="button delete-btn">Delete Listed</button>
+            </div>
         </div>
         <div id="fileList"></div>
         <p id="noMatchMessage" class="status-message" style="display: none;">No matching files found.</p>
@@ -256,7 +260,10 @@
 
         <div class="section-header">
             <h2>Unmatched Files</h2>
-            <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
+            <div>
+                <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
+                <button id="deleteUnmatched" class="button delete-btn">Delete All Unmatched</button>
+            </div>
         </div>
         <div id="unmatchedFiles"></div>
         <p id="unmatchedCount" class="status-message" style="display: none;">Total unmatched files: <span id="unmatchedCountValue"></span></p>
@@ -265,7 +272,10 @@
     <div id="duplicateFilesContainer" class="container" style="display: none;">
         <div class="section-header">
             <h2>Duplicate Files (within the selected folder)</h2>
-            <button id="downloadDuplicates" class="button download-btn">Download CSV</button>
+            <div>
+                <button id="downloadDuplicates" class="button download-btn">Download CSV</button>
+                <button id="deleteDuplicates" class="button delete-btn">Delete All Duplicates</button>
+            </div>
         </div>
         <div id="duplicateFileList"></div>
         <p id="noDuplicatesMessage" class="status-message" style="display: none;">No duplicate files found.</p>
@@ -320,6 +330,9 @@
         const downloadMatchedBtn = document.getElementById('downloadMatched');
         const downloadUnmatchedBtn = document.getElementById('downloadUnmatched');
         const downloadDuplicatesBtn = document.getElementById('downloadDuplicates');
+        const deleteMatchedBtn = document.getElementById('deleteMatched');
+        const deleteUnmatchedBtn = document.getElementById('deleteUnmatched');
+        const deleteDuplicatesBtn = document.getElementById('deleteDuplicates');
         const identifierRegex = /(KA|EN)\s*\d+/i;
 
         function extractFileIdentifier(fileName) {
@@ -462,23 +475,23 @@
             const matchingFiles = [];
             const unmatchedFiles = []; // Will hold files from folder 1 not in 2, and vice-versa
 
-            for (const [fileId, filePath] of filesInFolder1.entries()) {
+            for (const [fileId, fileObj] of filesInFolder1.entries()) {
                 if (filesInFolder2.has(fileId)) {
-                    matchingFiles.push(filePath);
+                    matchingFiles.push(fileObj);
                     matchedIds.add(fileId);
                 } else {
-                    unmatchedFiles.push(filePath);
+                    unmatchedFiles.push(fileObj);
                 }
             }
 
-            for (const [fileId, filePath] of filesInFolder2.entries()) {
+            for (const [fileId, fileObj] of filesInFolder2.entries()) {
                 if (!matchedIds.has(fileId)) {
-                    unmatchedFiles.push(filePath);
+                    unmatchedFiles.push(fileObj);
                 }
             }
 
-            const filteredMatchingFiles = matchingFiles.filter(file => file && file.trim() !== '');
-            const filteredUnmatchedFiles = unmatchedFiles.filter(file => file && file.trim() !== '');
+            const filteredMatchingFiles = matchingFiles.filter(file => file && file.path && file.path.trim() !== '');
+            const filteredUnmatchedFiles = unmatchedFiles.filter(file => file && file.path && file.path.trim() !== '');
 
             return { matchingFiles: filteredMatchingFiles, unmatchedFiles: filteredUnmatchedFiles };
         }
@@ -501,7 +514,10 @@
                                     files.push({
                                         identifier,
                                         normalizedIdentifier,
-                                        path: fullPath
+                                        path: fullPath,
+                                        handle: entry,
+                                        parentHandle: handle,
+                                        name: entry.name
                                     });
                                 }
                             }
@@ -549,7 +565,7 @@
             const fileMap = new Map();
             for (const file of files) {
                 if (file.normalizedIdentifier && !fileMap.has(file.normalizedIdentifier)) {
-                    fileMap.set(file.normalizedIdentifier, file.path);
+                    fileMap.set(file.normalizedIdentifier, file);
                 }
             }
             return fileMap;
@@ -590,17 +606,17 @@
                 if (!idMap.has(file.normalizedIdentifier)) {
                     idMap.set(file.normalizedIdentifier, []);
                 }
-                idMap.get(file.normalizedIdentifier).push(file.path);
+                idMap.get(file.normalizedIdentifier).push(file);
             }
            
-            const duplicatePaths = [];
-            for (const paths of idMap.values()) {
-                if (paths.length > 1) {
-                    duplicatePaths.push(...paths);
+            const duplicateFiles = [];
+            for (const files of idMap.values()) {
+                if (files.length > 1) {
+                    duplicateFiles.push(...files);
                 }
             }
            
-            return duplicatePaths.sort((a, b) => a.localeCompare(b)); // Return sorted array of paths with duplicate IDs
+            return duplicateFiles.sort((a, b) => (a.path || '').localeCompare(b.path || '')); // Return sorted array of paths with duplicate IDs
         }
 
         // --- UI Display Functions ---
@@ -652,8 +668,12 @@
             }
 
             const filesToRender = files
-                .filter(file => file && typeof file === 'string' && file.trim() !== '')
-                .sort((a, b) => a.localeCompare(b));
+                .filter(file => file && (typeof file === 'string' || (typeof file === 'object' && file.path)))
+                .sort((a, b) => {
+                    const pathA = typeof a === 'string' ? a : a.path || '';
+                    const pathB = typeof b === 'string' ? b : b.path || '';
+                    return pathA.localeCompare(pathB);
+                });
 
             if (filesToRender.length === 0) {
                 const p = document.createElement('p');
@@ -671,7 +691,7 @@
             const fragment = document.createDocumentFragment();
             for (const file of filesToRender) {
                 const p = document.createElement('p');
-                p.textContent = file;
+                p.textContent = typeof file === 'string' ? file : file.path;
                 fragment.appendChild(p);
             }
             listElement.appendChild(fragment);
@@ -695,9 +715,10 @@
             let csvContent = "File Path\n";
            
             // Add each file path as a row
-            fileArray.forEach(filePath => {
+            fileArray.forEach(file => {
+                const path = (typeof file === 'string') ? file : (file.path || '');
                 // Escape quotes and wrap in quotes to handle commas in paths
-                const escapedPath = filePath.replace(/"/g, '""');
+                const escapedPath = path.replace(/"/g, '""');
                 csvContent += `"${escapedPath}"\n`;
             });
            
@@ -763,6 +784,121 @@
             const csvContent = convertToCSV(currentDuplicateFiles);
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             downloadCSV(csvContent, `duplicate-files-${timestamp}.csv`);
+        });
+
+        // --- Deletion Logic ---
+        
+        async function deleteFiles(filesToDelete) {
+            if (!filesToDelete || filesToDelete.length === 0) {
+                alert('No files to delete.');
+                return;
+            }
+
+            const confirmed = confirm(`Are you sure you want to delete ${filesToDelete.length} files? This action cannot be undone.`);
+            if (!confirmed) return;
+
+            let deletedCount = 0;
+            let errorCount = 0;
+
+            loadingSpinner.style.display = 'block';
+            const originalText = loadingSpinner.querySelector('p').textContent;
+            loadingSpinner.querySelector('p').textContent = 'Deleting files...';
+
+            try {
+                for (const file of filesToDelete) {
+                    try {
+                        if (file.parentHandle && file.name) {
+                            await file.parentHandle.removeEntry(file.name);
+                            deletedCount++;
+                        } else {
+                            console.warn('Missing file handle for deletion:', file);
+                            errorCount++;
+                        }
+                    } catch (err) {
+                        console.error(`Failed to delete ${file.name}:`, err);
+                        errorCount++;
+                    }
+                }
+            } finally {
+                loadingSpinner.querySelector('p').textContent = originalText;
+                loadingSpinner.style.display = 'none';
+            }
+
+            alert(`Deleted ${deletedCount} files.${errorCount > 0 ? ` Failed to delete ${errorCount} files.` : ''}`);
+
+            // Refresh results by re-triggering the process button
+            if ((dirHandle1 && dirHandle2) || (dirHandle1 && submitBtn.textContent === 'Find Duplicates')) {
+                submitBtn.click();
+            }
+        }
+
+        async function ensureWritePermission(handle) {
+            const options = { mode: 'readwrite' };
+            if ((await handle.queryPermission(options)) === 'granted') {
+                return true;
+            }
+            if ((await handle.requestPermission(options)) === 'granted') {
+                return true;
+            }
+            return false;
+        }
+
+        deleteMatchedBtn.addEventListener('click', async () => {
+             const filesToDelete = currentMatchingFiles;
+             if (filesToDelete.length === 0) {
+                 alert('No matching files to delete.');
+                 return;
+             }
+             
+             // We might need permission for both folders if matches come from both
+             // But usually matches are found in folder 1 relative to folder 2 or vice versa depending on logic
+             // In this script, 'matchingFiles' are files from Folder 1 that are also in Folder 2.
+             // So we need permission for Folder 1.
+             
+             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
+                 alert('Permission to delete files in Folder 1 was denied.');
+                 return;
+             }
+             
+             await deleteFiles(filesToDelete);
+        });
+
+        deleteUnmatchedBtn.addEventListener('click', async () => {
+             const filesToDelete = currentUnmatchedFiles;
+             if (filesToDelete.length === 0) {
+                 alert('No unmatched files to delete.');
+                 return;
+             }
+
+             // Unmatched files could be in Folder 1 or Folder 2.
+             // We need to ensure we have write permission for whichever folders are involved.
+             // Simplest approach: ensure permission for both if both are selected.
+             
+             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
+                 alert('Permission to delete files in Folder 1 was denied.');
+                 return;
+             }
+             if (dirHandle2 && !(await ensureWritePermission(dirHandle2))) {
+                 alert('Permission to delete files in Folder 2 was denied.');
+                 return;
+             }
+
+             await deleteFiles(filesToDelete);
+        });
+
+        deleteDuplicatesBtn.addEventListener('click', async () => {
+             const filesToDelete = currentDuplicateFiles;
+             if (filesToDelete.length === 0) {
+                 alert('No duplicate files to delete.');
+                 return;
+             }
+
+             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
+                 alert('Permission to delete files was denied.');
+                 return;
+             }
+
+             await deleteFiles(filesToDelete);
         });
 
     </script>
