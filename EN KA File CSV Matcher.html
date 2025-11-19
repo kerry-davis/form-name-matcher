@@ -149,7 +149,6 @@
         label[for="csvFileInput"] { background-color: var(--button-secondary); }
         #reset { background-color: var(--button-danger); }
         .download-btn { background-color: var(--download-button); }
-        .delete-btn { background-color: var(--button-danger); margin-left: 10px; }
         
         label[for="csvFileInput"]:hover {
             transform: translateY(-3px);
@@ -313,10 +312,7 @@
 
         <div class="section-header">
             <h2>Unmatched Files</h2>
-            <div>
-                <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
-                <button id="deleteUnmatched" class="button delete-btn">Delete All Unmatched</button>
-            </div>
+            <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
         </div>
         <div id="unmatchedFiles"></div>
         <p id="unmatchedCount" class="status-message" style="display: none;">Total unmatched files: <span id="unmatchedCountValue"></span></p>
@@ -365,8 +361,6 @@
         // Download Buttons
         const downloadMatchedBtn = document.getElementById('downloadMatched');
         const downloadUnmatchedBtn = document.getElementById('downloadUnmatched');
-        const deleteMatchedBtn = document.getElementById('deleteMatched');
-        const deleteUnmatchedBtn = document.getElementById('deleteUnmatched');
         let currentMatchFilter = 'all';
 
         matchFilterInputs.forEach(input => {
@@ -664,13 +658,10 @@
                         csvCompany: matchedRow.csvCompanyValue,
                         csvCaseNumber: matchedRow.csvCaseNumberValue,
                         identifierMismatch,
-                        companyMismatch,
-                        handle: file.handle,
-                        parentHandle: file.parentHandle,
-                        name: file.name
+                        companyMismatch
                     });
                 } else {
-                    unmatchedFiles.push(file);
+                    unmatchedFiles.push(file.path);
                 }
             }
 
@@ -702,10 +693,7 @@
                                     normalizedIdentifier,
                                     companyName,
                                     normalizedCompany,
-                                    path: fullPath,
-                                    handle: entry,
-                                    parentHandle: handle,
-                                    name: entry.name
+                                    path: fullPath
                                 });
                             }
                         } else if (entry.kind === 'directory') {
@@ -974,10 +962,9 @@
             } else {
                 // Just file paths (for unmatched files)
                 csvContent = "File Path\n";
-                filteredArray.forEach(fileObj => {
+                filteredArray.forEach(filePath => {
                     // Escape quotes and wrap in quotes to handle commas in paths
-                    const path = (typeof fileObj === 'string') ? fileObj : (fileObj.path || '');
-                    const escapedPath = path.replace(/"/g, '""');
+                    const escapedPath = (filePath || '').replace(/"/g, '""');
                     csvContent += `"${escapedPath}"\n`;
                 });
             }
@@ -1037,93 +1024,6 @@
             const csvContent = convertToCSV(currentUnmatchedFiles);
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             downloadCSV(csvContent, `unmatched-files-${timestamp}.csv`);
-        });
-
-        // --- Deletion Logic ---
-        
-        async function deleteFiles(filesToDelete) {
-            if (!filesToDelete || filesToDelete.length === 0) {
-                alert('No files to delete.');
-                return;
-            }
-
-            const confirmed = confirm(`Are you sure you want to delete ${filesToDelete.length} files? This action cannot be undone.`);
-            if (!confirmed) return;
-
-            let deletedCount = 0;
-            let errorCount = 0;
-
-            loadingSpinner.style.display = 'block';
-            const originalText = loadingSpinner.querySelector('p').textContent;
-            loadingSpinner.querySelector('p').textContent = 'Deleting files...';
-
-            try {
-                for (const file of filesToDelete) {
-                    try {
-                        if (file.parentHandle && file.name) {
-                            await file.parentHandle.removeEntry(file.name);
-                            deletedCount++;
-                        } else {
-                            console.warn('Missing file handle for deletion:', file);
-                            errorCount++;
-                        }
-                    } catch (err) {
-                        console.error(`Failed to delete ${file.name}:`, err);
-                        errorCount++;
-                    }
-                }
-            } finally {
-                loadingSpinner.querySelector('p').textContent = originalText;
-                loadingSpinner.style.display = 'none';
-            }
-
-            alert(`Deleted ${deletedCount} files.${errorCount > 0 ? ` Failed to delete ${errorCount} files.` : ''}`);
-
-            // Refresh results
-            if (dirHandle1 && csvData) {
-                submitBtn.click();
-            }
-        }
-
-        async function ensureWritePermission(handle) {
-            const options = { mode: 'readwrite' };
-            if ((await handle.queryPermission(options)) === 'granted') {
-                return true;
-            }
-            if ((await handle.requestPermission(options)) === 'granted') {
-                return true;
-            }
-            return false;
-        }
-
-        deleteMatchedBtn.addEventListener('click', async () => {
-             const filesToDelete = filterMatchingFiles(currentMatchingFiles, currentMatchFilter);
-             if (filesToDelete.length === 0) {
-                 alert('No matching files to delete for the selected filter.');
-                 return;
-             }
-             
-             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
-                 alert('Permission to delete files was denied.');
-                 return;
-             }
-             
-             await deleteFiles(filesToDelete);
-        });
-
-        deleteUnmatchedBtn.addEventListener('click', async () => {
-             const filesToDelete = currentUnmatchedFiles;
-             if (filesToDelete.length === 0) {
-                 alert('No unmatched files to delete.');
-                 return;
-             }
-
-             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
-                 alert('Permission to delete files was denied.');
-                 return;
-             }
-
-             await deleteFiles(filesToDelete);
         });
        
 
