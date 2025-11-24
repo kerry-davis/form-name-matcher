@@ -211,6 +211,13 @@
         .cat-b { color: var(--button-primary); } /* Tickable */
         .cat-c { color: var(--button-warning); } /* Locked/Other */
 
+        /* Processing Time Display */
+        .status-message {
+            text-align: center;
+            margin: 10px 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -384,6 +391,10 @@
             <div id="moveLog" class="file-list" style="display:none; height: 200px;"></div>
         </div>
 
+        <div id="processingTimeContainer" class="container" style="display: none; margin-top: 20px;">
+             <p id="processingTime" class="status-message">Total processing time: <span id="time"></span></p>
+        </div>
+
     </div>
 
     <script>
@@ -439,37 +450,65 @@
             const txt = document.getElementById('loadingText1');
             const stopBtn = document.getElementById('stopAnalyzeBtn');
             const analyzeBtn = document.getElementById('analyzeBtn');
+            const timeContainer = document.getElementById('processingTimeContainer');
             
             loading.style.display = 'block';
             stopBtn.style.display = 'inline-block';
+            timeContainer.style.display = 'none';
             analyzeBtn.disabled = true; // Prevent double click
             isProcessing = true;
             
             allFiles = [];
             resetLists();
             
+            const startTime = performance.now();
+
             try {
                 txt.textContent = "Scanning folders...";
                 // Get selected scan mode
                 const mode = document.querySelector('input[name="scanMode"]:checked').value;
                 
-                const filesToProcess = await scanForPdfs(sourceDirHandle, '', 0, mode);
+                const filesToProcess = await scanForPdfsConcurrent(sourceDirHandle, mode);
                 
-                let processed = 0;
-                for (const file of filesToProcess) {
+                let processedCount = 0;
+                const total = filesToProcess.length;
+                
+                // Helper for concurrency
+                async function processBatch(files) {
+                    const promises = files.map(async (file) => {
+                        if (!isProcessing) return null;
+                        const result = await analyzePdf(file);
+                        processedCount++;
+                        // Update UI every few items or strictly on batch end?
+                        // Updating text content in rAF to avoid UI lag on heavy layout thrashing
+                        requestAnimationFrame(() => {
+                             txt.textContent = `Analyzing ${processedCount}/${total}`;
+                        });
+                        return result;
+                    });
+                    return Promise.all(promises);
+                }
+
+                const BATCH_SIZE = 16; // Adjust based on PDF.js memory usage
+                for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
                     if (!isProcessing) {
                         txt.textContent = "Analysis Stopped.";
                         break;
                     }
+                    const batch = filesToProcess.slice(i, i + BATCH_SIZE);
+                    const results = await processBatch(batch);
                     
-                    processed++;
-                    txt.textContent = `Analyzing ${processed}/${filesToProcess.length}: ${file.name}`;
-                    
-                    const result = await analyzePdf(file);
-                    allFiles.push(result);
+                    // Filter out nulls (stopped items)
+                    results.forEach(r => {
+                        if (r) allFiles.push(r);
+                    });
                 }
 
                 displayResults();
+                
+                const endTime = performance.now();
+                displayProcessingTime(startTime, endTime);
+
             } catch (error) {
                 alert("Error during analysis: " + error.message);
                 console.error(error);
@@ -485,54 +524,82 @@
             document.getElementById('loadingText1').textContent = "Stopping...";
         });
 
-        // Recursive Scan for KA*.pdf in subfolders
-        async function scanForPdfs(dirHandle, path = '', depth = 0, mode = 'subfolders') {
-            let results = [];
+        // Concurrent Scan for KA*.pdf
+        async function scanForPdfsConcurrent(dirHandle, mode = 'subfolders') {
+            const results = [];
             const kaPattern = /^KA\d{8}.*\.pdf$/i;
+            const queue = [{ handle: dirHandle, path: '', depth: 0 }];
+            const MAX_CONCURRENT_DIRS = 8; // Chrome typically handles this well
 
-            try {
-                for await (const entry of dirHandle.values()) {
-                    try {
+            async function processDirectory(item) {
+                const { handle, path, depth } = item;
+                const subDirs = [];
+                
+                try {
+                    for await (const entry of handle.values()) {
+                         // Check stop flag
+                        if (!isProcessing) return;
+
                         if (entry.kind === 'directory') {
-                            // Logic: Recurse if mode is 'subfolders' or 'both'.
-                            // Also, if mode is 'root', we STOP at depth 0 (don't go deeper).
-                            if (mode === 'root') continue;
-
-                            // Go deeper - PASS entry as the new parentHandle for the recursive call logic
-                            const subPath = path ? `${path}/${entry.name}` : entry.name;
-                            const subResults = await scanForPdfs(entry, subPath, depth + 1, mode);
-                            results = results.concat(subResults);
+                             // Logic: Recurse if mode is 'subfolders' or 'both'.
+                            // Also, if mode is 'root', we STOP at depth 0.
+                            if (mode !== 'root') {
+                                 const subPath = path ? `${path}/${entry.name}` : entry.name;
+                                 subDirs.push({ 
+                                     handle: entry, 
+                                     path: subPath, 
+                                     depth: depth + 1 
+                                 });
+                            }
                         } else if (entry.kind === 'file') {
                             // Logic:
                             // If mode 'subfolders': Process only if depth > 0
                             // If mode 'root': Process only if depth == 0
                             // If mode 'both': Process all
-                            
                             let shouldProcess = false;
                             if (mode === 'both') shouldProcess = true;
                             else if (mode === 'root' && depth === 0) shouldProcess = true;
                             else if (mode === 'subfolders' && depth > 0) shouldProcess = true;
 
-                            if (!shouldProcess) continue;
-
-                            // Check filename pattern
-                            if (kaPattern.test(entry.name)) {
+                            if (shouldProcess && kaPattern.test(entry.name)) {
                                 results.push({
                                     name: entry.name,
                                     handle: entry,
-                                    parentHandle: dirHandle, // CRITICAL FIX: Use the current dirHandle context
+                                    parentHandle: handle,
                                     relativePath: path ? `${path}/${entry.name}` : entry.name
                                 });
                             }
                         }
-                    } catch (innerErr) {
-                        console.warn(`Skipping entry ${entry.name} due to error:`, innerErr);
                     }
+                } catch (e) {
+                    console.warn(`Error reading ${handle.name}:`, e);
                 }
-            } catch (dirErr) {
-                console.warn(`Error reading directory ${dirHandle.name}:`, dirErr);
+                
+                return subDirs;
             }
+
+            while (queue.length > 0 && isProcessing) {
+                const batch = queue.splice(0, MAX_CONCURRENT_DIRS);
+                const batchResults = await Promise.all(batch.map(item => processDirectory(item)));
+                
+                // Add found subdirectories to queue
+                batchResults.forEach(subDirs => {
+                    if(subDirs) queue.push(...subDirs);
+                });
+            }
+
             return results;
+        }
+
+        function displayProcessingTime(startTime, endTime) {
+            const totalTimeInSeconds = (endTime - startTime) / 1000;
+            const hours = Math.floor(totalTimeInSeconds / 3600);
+            const minutes = Math.floor((totalTimeInSeconds % 3600) / 60);
+            const seconds = (totalTimeInSeconds % 60).toFixed(2);
+
+            const timeSpan = document.getElementById('time');
+            timeSpan.textContent = `${hours > 0 ? hours + 'h ' : ''}${minutes > 0 ? minutes + 'm ' : ''}${seconds}s`;
+            document.getElementById('processingTimeContainer').style.display = 'block';
         }
 
         // Core Analysis Logic
