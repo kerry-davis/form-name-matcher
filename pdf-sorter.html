@@ -601,7 +601,8 @@
                     if (postcodeField) {
                         const isPostcodeLocked = postcodeField.readOnly || (postcodeField.fieldFlags & 1) === 1;
                         if (isPostcodeLocked) {
-                            return { ...res, category: 'C', reason: 'Main Form Locked (Postcode)' };
+                            // FIXED LOGIC: If main form is locked, it is "Non-Editable" -> Folder A
+                            return { ...res, category: 'A', reason: 'Non-Editable (Main Form Locked)' };
                         }
                     }
                 }
