@@ -573,38 +573,24 @@
                     return { ...res, category: 'A', reason: 'No Form Fields' };
                 }
 
-                // --- NEW: Page 1 "Legal business name" Check (Edge Case Filter) ---
-                // If this field is locked, it goes to A, even if Office Use boxes are open.
+                // --- NEW: Global Page 1 Lock Check (Robust Edge Case Filter) ---
+                // Instead of finding one specific field, check if the majority of Page 1 fields are locked.
                 
-                const page1TextItems = textContent1.items;
-                // Loose match for "legal business name"
-                const legalNameItem = page1TextItems.find(item => item.str.toLowerCase().includes("legal business name"));
+                const p1Anns = await page1.getAnnotations();
+                const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget' && a.fieldType === 'Tx'); // Focus on Text fields
                 
-                if (legalNameItem) {
-                    const p1Anns = await page1.getAnnotations();
-                    const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget'); // Text fields, etc.
-                    
-                    const labelX = legalNameItem.transform[4];
-                    const labelY = legalNameItem.transform[5]; // Baseline Y
-                    
-                    // Find widget that is:
-                    // 1. Vertically BELOW the label (Y < labelY in PDF coords)
-                    // 2. Close proximity (within ~60 units)
-                    const targetField = p1Widgets.find(w => {
-                        const wx = w.rect[0]; 
-                        const wy = w.rect[1]; // Bottom Y of widget
-                        // Check if widget top (wy + height) is below label? 
-                        // Simplification: Check if widget center/bottom is less than labelY
-                        // but not too far down
-                        return (wy < labelY) && (Math.abs(labelY - wy) < 60);
-                    });
-
-                    if (targetField) {
-                        const isLocked = targetField.readOnly || (targetField.fieldFlags & 1) === 1;
-                        if (isLocked) {
-                            // FIXED LOGIC: If main form is locked, it is "Non-Editable" -> Folder A
-                            return { ...res, category: 'A', reason: 'Non-Editable (Main Form Locked)' };
+                if (p1Widgets.length > 0) {
+                    let lockedCount = 0;
+                    for (const w of p1Widgets) {
+                        // Check if locked
+                        if (w.readOnly || (w.fieldFlags & 1) === 1) {
+                            lockedCount++;
                         }
+                    }
+                    
+                    // Heuristic: If ANY single text field on Page 1 is locked, treat as Non-Editable.
+                    if (lockedCount > 0) {
+                         return { ...res, category: 'A', reason: 'Non-Editable (Page 1 has locked fields)' };
                     }
                 }
 
