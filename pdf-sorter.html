@@ -577,20 +577,24 @@
                 // Instead of finding one specific field, check if the majority of Page 1 fields are locked.
                 
                 const p1Anns = await page1.getAnnotations();
-                const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget' && a.fieldType === 'Tx'); // Focus on Text fields
+                // BROADENED CHECK: Check ALL Widgets, not just 'Tx' (Text)
+                const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget'); 
                 
                 if (p1Widgets.length > 0) {
                     let lockedCount = 0;
                     for (const w of p1Widgets) {
+                        // DEBUG LOGging
+                        console.log(`File: ${fileObj.name} | Widget: ${w.fieldName} | Type: ${w.fieldType} | ReadOnly: ${w.readOnly} | Flags: ${w.fieldFlags}`);
+                        
                         // Check if locked
                         if (w.readOnly || (w.fieldFlags & 1) === 1) {
                             lockedCount++;
                         }
                     }
                     
-                    // Heuristic: If ANY single text field on Page 1 is locked, treat as Non-Editable.
+                    // Heuristic: If ANY single widget on Page 1 is locked, treat as Non-Editable.
                     if (lockedCount > 0) {
-                         return { ...res, category: 'A', reason: 'Non-Editable (Page 1 has locked fields)' };
+                         return { ...res, category: 'A', reason: `Non-Editable (Page 1 has ${lockedCount} locked fields)` };
                     }
                 }
 
