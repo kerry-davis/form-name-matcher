@@ -299,9 +299,9 @@
                         <h3 class="cat-a">Folder A<br><small>(Non-Editable)</small></h3>
                     </div>
                     <div>
-                        <label class="button btn-secondary" style="display:block; text-align:center; font-size:0.8rem;">
+                        <label class="button btn-secondary" id="lblCsvA" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
                             Select CSV (A)
-                            <input type="file" id="csvInputA" accept=".csv" style="display:none">
+                            <input type="file" id="csvInputA" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayA" class="file-status">No CSV loaded</div>
                     </div>
@@ -317,9 +317,9 @@
                         <h3 class="cat-b">Folder B<br><small>(Office Use: tickable)</small></h3>
                     </div>
                     <div>
-                        <label class="button btn-secondary" style="display:block; text-align:center; font-size:0.8rem;">
+                        <label class="button btn-secondary" id="lblCsvB" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
                             Select CSV (B)
-                            <input type="file" id="csvInputB" accept=".csv" style="display:none">
+                            <input type="file" id="csvInputB" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayB" class="file-status">No CSV loaded</div>
                     </div>
@@ -335,9 +335,9 @@
                         <h3 class="cat-c">Folder C<br><small>(Office Use: not tickable)</small></h3>
                     </div>
                     <div>
-                        <label class="button btn-secondary" style="display:block; text-align:center; font-size:0.8rem;">
+                        <label class="button btn-secondary" id="lblCsvC" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
                             Select CSV (C)
-                            <input type="file" id="csvInputC" accept=".csv" style="display:none">
+                            <input type="file" id="csvInputC" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayC" class="file-status">No CSV loaded</div>
                     </div>
@@ -691,6 +691,15 @@
              try {
                 sourceDirHandle2 = await window.showDirectoryPicker();
                 document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name}`;
+                
+                // Enable CSV Inputs
+                ['A', 'B', 'C'].forEach(cat => {
+                    const lbl = document.getElementById(`lblCsv${cat}`);
+                    const inp = document.getElementById(`csvInput${cat}`);
+                    if(lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
+                    if(inp) { inp.disabled = false; }
+                });
+
                 checkMoveReady();
             } catch (err) { console.error(err); }
         });
@@ -709,11 +718,11 @@
 
         async function pickDest(cat) {
             try {
-                const handle = await window.showDirectoryPicker();
+                const handle = await window.showDirectoryPicker({ mode: 'readwrite' }); // Request write permission upfront
                 destHandles[cat] = handle;
                 document.getElementById(`pathDest${cat}`).textContent = handle.name;
                 checkMoveReady();
-            } catch(e) {}
+            } catch(e) { console.error(e); }
         }
 
         document.getElementById('btnDestA').addEventListener('click', () => pickDest('A'));
@@ -723,11 +732,16 @@
         function checkMoveReady() {
             if (!sourceDirHandle2) {
                 document.getElementById('executeMoveBtn').disabled = true;
+                // Ensure buttons stay disabled if source not selected
+                ['A', 'B', 'C'].forEach(c => {
+                    document.getElementById(`btnDest${c}`).disabled = true;
+                });
                 return;
             }
-            // Enable destination buttons if source is ready
+            // Enable destination buttons if source is ready AND CSV is loaded for that row
             ['A', 'B', 'C'].forEach(c => {
-                document.getElementById(`btnDest${c}`).disabled = false;
+                const hasCsv = !!csvDataStore[c];
+                document.getElementById(`btnDest${c}`).disabled = !hasCsv; 
             });
 
             // Check if at least ONE row is fully ready (CSV + Folder)
@@ -835,9 +849,9 @@
 
                             await parentHandle.removeEntry(fileHandle.name);
 
-                            logMsg(row.name, `Moved to Folder ${cat}`, 'green');
+                            logMsg(row.name, `Moved to ${targetFolder.name}`, 'green');
                             summaryRow.Status = 'Success';
-                            summaryRow.Message = `Moved to Folder ${cat}`;
+                            summaryRow.Message = `Moved to ${targetFolder.name}`;
 
                         } catch (e) {
                             logMsg(row.name, "Error Moving: " + e.message, 'red');
@@ -880,17 +894,8 @@
         }
 
         document.getElementById('resetBtn2').addEventListener('click', () => {
-             sourceDirHandle2 = null;
-             csvData = null;
-             destHandles = { A:null, B:null, C:null };
-             document.getElementById('sourcePathDisplay2').textContent = 'No source folder selected';
-             document.getElementById('csvDisplay').textContent = 'No CSV selected';
-             document.getElementById('pathDestA').textContent = 'Not Selected';
-             document.getElementById('pathDestB').textContent = 'Not Selected';
-             document.getElementById('pathDestC').textContent = 'Not Selected';
-             document.getElementById('csvInput').value = '';
-             document.getElementById('moveLog').innerHTML = '';
-             checkMoveReady();
+            // Reload page for full clean slate
+            window.location.reload();
         });
 
     </script>
