@@ -244,8 +244,8 @@
             <div id="resultsArea" class="results-section">
                 <div class="tab-container">
                     <button class="tab-btn active" onclick="showTab('A')">Folder A (Non-Editable) <span id="countA">0</span></button>
-                    <button class="tab-btn" onclick="showTab('B')">Folder B (Tickable) <span id="countB">0</span></button>
-                    <button class="tab-btn" onclick="showTab('C')">Folder C (Locked/Other) <span id="countC">0</span></button>
+                    <button class="tab-btn" onclick="showTab('B')">Folder B (Office Use: tickable) <span id="countB">0</span></button>
+                    <button class="tab-btn" onclick="showTab('C')">Folder C (Office Use: not tickable) <span id="countC">0</span></button>
                 </div>
 
                 <div id="listA" class="file-list"></div>
@@ -263,7 +263,7 @@
         <!-- Phase 2: Move -->
         <div id="phase2-container">
             <p style="text-align:center; color:var(--text-secondary); margin-bottom:20px;">
-                Use the CSV generated in Phase 1 (optionally edited) to move files to their destinations.
+                Upload CSVs for the categories you wish to process. You can process one, two, or all three.
             </p>
 
             <div class="button-container">
@@ -271,26 +271,80 @@
             </div>
             <div id="sourcePathDisplay2" class="status-box">No source folder selected</div>
 
-            <div class="button-container">
-                <label class="button btn-secondary" style="display:inline-block">
-                    2. Select CSV File
-                    <input type="file" id="csvInput" accept=".csv" style="display:none">
-                </label>
-            </div>
-            <div id="csvDisplay" class="status-box">No CSV selected</div>
+            <style>
+                .move-row {
+                    display: grid;
+                    grid-template-columns: 1fr 1.5fr 1.5fr;
+                    gap: 15px;
+                    align-items: center;
+                    background: rgba(255,255,255,0.05);
+                    padding: 15px;
+                    border: 1px solid var(--border-color);
+                    border-radius: 8px;
+                    margin-bottom: 15px;
+                }
+                .move-row h3 {
+                    margin: 0;
+                    font-size: 1rem;
+                    border: none;
+                    text-align: left;
+                }
+                .file-status { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }
+            </style>
 
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:20px;">
-                <div>
-                    <button id="btnDestA" class="button btn-danger" style="width:100%" disabled>3. Select Folder A</button>
-                    <div id="pathDestA" class="status-box" style="font-size:0.7em">Not Selected</div>
+            <div style="margin-top:20px;">
+                <!-- Row A -->
+                <div class="move-row">
+                    <div>
+                        <h3 class="cat-a">Folder A<br><small>(Non-Editable)</small></h3>
+                    </div>
+                    <div>
+                        <label class="button btn-secondary" style="display:block; text-align:center; font-size:0.8rem;">
+                            Select CSV (A)
+                            <input type="file" id="csvInputA" accept=".csv" style="display:none">
+                        </label>
+                        <div id="csvDisplayA" class="file-status">No CSV loaded</div>
+                    </div>
+                    <div>
+                        <button id="btnDestA" class="button btn-danger" style="width:100%; font-size:0.8rem;" disabled>Select Folder A</button>
+                        <div id="pathDestA" class="file-status">Not Selected</div>
+                    </div>
                 </div>
-                <div>
-                    <button id="btnDestB" class="button btn-primary" style="width:100%" disabled>3. Select Folder B</button>
-                    <div id="pathDestB" class="status-box" style="font-size:0.7em">Not Selected</div>
+
+                <!-- Row B -->
+                <div class="move-row">
+                    <div>
+                        <h3 class="cat-b">Folder B<br><small>(Office Use: tickable)</small></h3>
+                    </div>
+                    <div>
+                        <label class="button btn-secondary" style="display:block; text-align:center; font-size:0.8rem;">
+                            Select CSV (B)
+                            <input type="file" id="csvInputB" accept=".csv" style="display:none">
+                        </label>
+                        <div id="csvDisplayB" class="file-status">No CSV loaded</div>
+                    </div>
+                    <div>
+                        <button id="btnDestB" class="button btn-primary" style="width:100%; font-size:0.8rem;" disabled>Select Folder B</button>
+                        <div id="pathDestB" class="file-status">Not Selected</div>
+                    </div>
                 </div>
-                <div>
-                    <button id="btnDestC" class="button btn-warning" style="width:100%" disabled>3. Select Folder C</button>
-                    <div id="pathDestC" class="status-box" style="font-size:0.7em">Not Selected</div>
+
+                <!-- Row C -->
+                <div class="move-row">
+                    <div>
+                        <h3 class="cat-c">Folder C<br><small>(Office Use: not tickable)</small></h3>
+                    </div>
+                    <div>
+                        <label class="button btn-secondary" style="display:block; text-align:center; font-size:0.8rem;">
+                            Select CSV (C)
+                            <input type="file" id="csvInputC" accept=".csv" style="display:none">
+                        </label>
+                        <div id="csvDisplayC" class="file-status">No CSV loaded</div>
+                    </div>
+                    <div>
+                        <button id="btnDestC" class="button btn-warning" style="width:100%; font-size:0.8rem;" disabled>Select Folder C</button>
+                        <div id="pathDestC" class="file-status">Not Selected</div>
+                    </div>
                 </div>
             </div>
 
@@ -322,7 +376,7 @@
         let allFiles = []; // { name, path, handle, parentHandle, category, reason }
         
         // Phase 2 State
-        let csvData = null;
+        let csvDataStore = { A: null, B: null, C: null };
         let destHandles = { A: null, B: null, C: null };
         let sourceDirHandle2 = null;
 
@@ -641,13 +695,16 @@
             } catch (err) { console.error(err); }
         });
 
-        document.getElementById('csvInput').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const text = await file.text();
-            csvData = parseCsv(text);
-            document.getElementById('csvDisplay').textContent = `Loaded ${csvData.length} rows from ${file.name}`;
-            checkMoveReady();
+        // CSV Inputs Handlers (A, B, C)
+        ['A', 'B', 'C'].forEach(cat => {
+            document.getElementById(`csvInput${cat}`).addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const text = await file.text();
+                csvDataStore[cat] = parseCsv(text);
+                document.getElementById(`csvDisplay${cat}`).textContent = `${file.name} (${csvDataStore[cat].length} rows)`;
+                checkMoveReady();
+            });
         });
 
         async function pickDest(cat) {
@@ -664,32 +721,39 @@
         document.getElementById('btnDestC').addEventListener('click', () => pickDest('C'));
 
         function checkMoveReady() {
-            const ready = sourceDirHandle2 && csvData && (destHandles.A || destHandles.B || destHandles.C);
-            document.getElementById('executeMoveBtn').disabled = !ready;
-            
+            if (!sourceDirHandle2) {
+                document.getElementById('executeMoveBtn').disabled = true;
+                return;
+            }
+            // Enable destination buttons if source is ready
             ['A', 'B', 'C'].forEach(c => {
-                document.getElementById(`btnDest${c}`).disabled = !sourceDirHandle2;
+                document.getElementById(`btnDest${c}`).disabled = false;
             });
+
+            // Check if at least ONE row is fully ready (CSV + Folder)
+            const readyA = csvDataStore.A && destHandles.A;
+            const readyB = csvDataStore.B && destHandles.B;
+            const readyC = csvDataStore.C && destHandles.C;
+
+            document.getElementById('executeMoveBtn').disabled = !(readyA || readyB || readyC);
         }
 
         function parseCsv(text) {
             const lines = text.split('\n').filter(l => l.trim());
-            const headers = lines[0].split(','); // Assuming simple CSV
-            // We expect FilePath, FileName, Category
-            // Handling potential quotes in CSV parsing is tricky with simple split, 
-            // but sticking to simple for this POC unless complex paths expected.
+            // Simple check to see if header exists, assuming standard format
+            const startIdx = lines[0].toLowerCase().startsWith('filepath') ? 1 : 0;
             
             // Improved Regex split to handle quoted fields
             const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
             
             const data = [];
-            for(let i=1; i<lines.length; i++) {
+            for(let i=startIdx; i<lines.length; i++) {
                 const cols = lines[i].split(regex).map(s => s.replace(/^"|"$/g, '').trim());
-                if(cols.length < 3) continue;
+                if(cols.length < 2) continue; // Need at least path and name
                 data.push({
                     path: cols[0],
                     name: cols[1],
-                    category: cols[2]
+                    category: cols[2] || '' // Optional read, we use the row's explicit assignment
                 });
             }
             return data;
@@ -707,101 +771,85 @@
             const summaryData = []; // Store for CSV export
 
             try {
-                for (const row of csvData) {
-                    const cat = row.category.trim().toUpperCase();
+                // Iterate over categories A, B, C
+                for (const cat of ['A', 'B', 'C']) {
+                    const data = csvDataStore[cat];
                     const targetFolder = destHandles[cat];
-                    
-                    const summaryRow = {
-                        FileName: row.name,
-                        OriginalPath: row.path,
-                        Category: cat,
-                        DestinationFolder: targetFolder ? targetFolder.name : 'N/A',
-                        Status: 'Pending',
-                        Message: ''
-                    };
-                    
-                    // If no folder selected for this category, skip
-                    if (!targetFolder) {
-                        logMsg(row.name, "Skipped - No destination folder for Category " + cat, 'grey');
-                        summaryRow.Status = 'Skipped';
-                        summaryRow.Message = "No destination folder for Category " + cat;
-                        summaryData.push(summaryRow);
-                        continue;
-                    }
 
-                    // 1. Find File in Source
-                    // CSV Row Path is now just "Subfolder" (Directory). Filename is separate.
-                    // We need to reconstruct: Subfolder + / + FileName
-                    
-                    // IMPORTANT: We need to split by '/' but handle potential OS path separators if manual CSV editing happened.
-                    // Assuming standard forward slash from our export.
-                    let pathParts = row.path ? row.path.split('/') : [];
-                    // Filter empty parts (e.g. if path was empty string for root)
-                    pathParts = pathParts.filter(p => p);
-                    
-                    // Add the filename to the end to find the specific file object
-                    pathParts.push(row.name);
+                    // Skip if not configured (CSV missing or Folder missing)
+                    if (!data || !targetFolder) continue;
 
-                    let currentHandle = sourceDirHandle2;
-                    let fileHandle = null;
-                    let parentHandle = sourceDirHandle2; // To delete later
+                    for (const row of data) {
+                        const summaryRow = {
+                            FileName: row.name,
+                            OriginalPath: row.path,
+                            Category: cat,
+                            DestinationFolder: targetFolder.name,
+                            Status: 'Pending',
+                            Message: ''
+                        };
 
-                    try {
-                        // Traverse to file
-                        // Note: pathParts includes filename at the end
-                        for(let i=0; i<pathParts.length; i++) {
-                            const part = pathParts[i];
-                            if (i === pathParts.length - 1) {
-                                // This is the file
-                                fileHandle = await currentHandle.getFileHandle(part);
-                            } else {
-                                // This is a folder
-                                currentHandle = await currentHandle.getDirectoryHandle(part);
-                                parentHandle = currentHandle;
-                            }
-                        }
-                    } catch (e) {
-                        logMsg(row.name, "File Not Found in Source", 'red');
-                        summaryRow.Status = 'Failed';
-                        summaryRow.Message = "File Not Found in Source";
-                        summaryData.push(summaryRow);
-                        continue;
-                    }
+                        // 1. Find File in Source
+                        // CSV Row Path is "Subfolder" (Directory). Filename is separate.
+                        let pathParts = row.path ? row.path.split('/') : [];
+                        pathParts = pathParts.filter(p => p);
+                        pathParts.push(row.name);
 
-                    // 2. Move (Copy -> Delete)
-                    try {
-                        const fileData = await fileHandle.getFile();
-                        // Check collision
-                        let newName = row.name;
+                        let currentHandle = sourceDirHandle2;
+                        let fileHandle = null;
+                        let parentHandle = sourceDirHandle2; 
+
                         try {
-                            await targetFolder.getFileHandle(newName);
-                            // If exists, append timestamp
-                            newName = newName.replace('.pdf', `_${Date.now()}.pdf`);
-                        } catch(e) { /* Not found = good */ }
+                            // Traverse
+                            for(let i=0; i<pathParts.length; i++) {
+                                const part = pathParts[i];
+                                if (i === pathParts.length - 1) {
+                                    fileHandle = await currentHandle.getFileHandle(part);
+                                } else {
+                                    currentHandle = await currentHandle.getDirectoryHandle(part);
+                                    parentHandle = currentHandle;
+                                }
+                            }
+                        } catch (e) {
+                            logMsg(row.name, "File Not Found in Source", 'red');
+                            summaryRow.Status = 'Failed';
+                            summaryRow.Message = "File Not Found in Source";
+                            summaryData.push(summaryRow);
+                            continue;
+                        }
 
-                        // Create new
-                        const newFileHandle = await targetFolder.getFileHandle(newName, { create: true });
-                        const writable = await newFileHandle.createWritable();
-                        await writable.write(fileData);
-                        await writable.close();
+                        // 2. Move
+                        try {
+                            const fileData = await fileHandle.getFile();
+                            // Check collision
+                            let newName = row.name;
+                            try {
+                                await targetFolder.getFileHandle(newName);
+                                newName = newName.replace('.pdf', `_${Date.now()}.pdf`);
+                            } catch(e) {}
 
-                        // Delete old
-                        await parentHandle.removeEntry(fileHandle.name);
+                            const newFileHandle = await targetFolder.getFileHandle(newName, { create: true });
+                            const writable = await newFileHandle.createWritable();
+                            await writable.write(fileData);
+                            await writable.close();
 
-                        logMsg(row.name, `Moved to Folder ${cat}`, 'green');
-                        summaryRow.Status = 'Success';
-                        summaryRow.Message = `Moved to Folder ${cat}`;
+                            await parentHandle.removeEntry(fileHandle.name);
 
-                    } catch (e) {
-                        logMsg(row.name, "Error Moving: " + e.message, 'red');
-                        summaryRow.Status = 'Failed';
-                        summaryRow.Message = "Error Moving: " + e.message;
+                            logMsg(row.name, `Moved to Folder ${cat}`, 'green');
+                            summaryRow.Status = 'Success';
+                            summaryRow.Message = `Moved to Folder ${cat}`;
+
+                        } catch (e) {
+                            logMsg(row.name, "Error Moving: " + e.message, 'red');
+                            summaryRow.Status = 'Failed';
+                            summaryRow.Message = "Error Moving: " + e.message;
+                        }
+                        
+                        summaryData.push(summaryRow);
                     }
-                    
-                    summaryData.push(summaryRow);
                 }
                 
-                // Generate and Download Summary CSV if requested
+                // Generate Summary CSV
                 if (generateSummary && summaryData.length > 0) {
                      let csvContent = "FileName,OriginalPath,Category,DestinationFolder,Status,Message\n";
                      summaryData.forEach(row => {
@@ -814,7 +862,7 @@
                      const a = document.createElement('a');
                      a.href = url;
                      a.download = `move-summary-${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.csv`;
-                     document.body.appendChild(a); // Append for Firefox support
+                     document.body.appendChild(a); 
                      a.click();
                      document.body.removeChild(a);
                 }
