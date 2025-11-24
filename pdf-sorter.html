@@ -245,6 +245,7 @@
 
             <div class="button-container">
                 <button id="analyzeBtn" class="button btn-primary" disabled>Analyze PDFs</button>
+                <button id="stopAnalyzeBtn" class="button btn-warning" style="display:none;">Stop Analysis</button>
                 <button id="resetBtn1" class="button btn-danger">Reset</button>
             </div>
 
@@ -369,6 +370,7 @@
 
             <div class="button-container">
                 <button id="executeMoveBtn" class="button btn-primary" disabled>Execute Move</button>
+                <button id="stopMoveBtn" class="button btn-warning" style="display:none;">Stop Move</button>
                 <button id="resetBtn2" class="button btn-danger">Reset</button>
             </div>
 
@@ -391,6 +393,8 @@
         let csvDataStore = { A: null, B: null, C: null };
         let destHandles = { A: null, B: null, C: null };
         let sourceDirHandle2 = null;
+        
+        let isProcessing = false; // Global stop flag
 
         // --- UI Toggles ---
         const darkModeToggle = document.getElementById('darkModeToggle');
@@ -431,7 +435,14 @@
             
             const loading = document.getElementById('loading1');
             const txt = document.getElementById('loadingText1');
+            const stopBtn = document.getElementById('stopAnalyzeBtn');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            
             loading.style.display = 'block';
+            stopBtn.style.display = 'inline-block';
+            analyzeBtn.disabled = true; // Prevent double click
+            isProcessing = true;
+            
             allFiles = [];
             resetLists();
             
@@ -444,6 +455,11 @@
                 
                 let processed = 0;
                 for (const file of filesToProcess) {
+                    if (!isProcessing) {
+                        txt.textContent = "Analysis Stopped.";
+                        break;
+                    }
+                    
                     processed++;
                     txt.textContent = `Analyzing ${processed}/${filesToProcess.length}: ${file.name}`;
                     
@@ -457,7 +473,14 @@
                 console.error(error);
             } finally {
                 loading.style.display = 'none';
+                stopBtn.style.display = 'none';
+                analyzeBtn.disabled = false;
             }
+        });
+        
+        document.getElementById('stopAnalyzeBtn').addEventListener('click', () => {
+            isProcessing = false;
+            document.getElementById('loadingText1').textContent = "Stopping...";
         });
 
         // Recursive Scan for KA*.pdf in subfolders
@@ -841,16 +864,23 @@
             const loading = document.getElementById('loading2');
             const log = document.getElementById('moveLog');
             const generateSummary = document.getElementById('generateSummaryCheckbox').checked;
+            const stopBtn = document.getElementById('stopMoveBtn');
+            const execBtn = document.getElementById('executeMoveBtn');
             
             loading.style.display = 'block';
+            stopBtn.style.display = 'inline-block';
+            execBtn.disabled = true;
             log.style.display = 'block';
             log.innerHTML = '';
+            isProcessing = true;
             
             const summaryData = []; // Store for CSV export
 
             try {
                 // Iterate over categories A, B, C
                 for (const cat of ['A', 'B', 'C']) {
+                    if (!isProcessing) break; // Stop check outer loop
+                    
                     const data = csvDataStore[cat];
                     const targetFolder = destHandles[cat];
 
@@ -858,6 +888,11 @@
                     if (!data || !targetFolder) continue;
 
                     for (const row of data) {
+                        if (!isProcessing) {
+                            logMsg("SYSTEM", "Process stopped by user", "orange");
+                            break; // Stop check inner loop
+                        }
+
                         const summaryRow = {
                             FileName: row.name,
                             OriginalPath: row.path,
@@ -927,7 +962,7 @@
                     }
                 }
                 
-                // Generate Summary CSV
+                // Generate Summary CSV (Even if stopped)
                 if (generateSummary && summaryData.length > 0) {
                      let csvContent = "FileName,OriginalPath,Category,DestinationFolder,Status,Message\n";
                      summaryData.forEach(row => {
@@ -947,7 +982,17 @@
 
             } finally {
                 loading.style.display = 'none';
+                stopBtn.style.display = 'none';
+                // We don't auto-enable execBtn because state might need reset or re-check, 
+                // but usually it's safe to re-enable if they want to try again.
+                execBtn.disabled = false; 
+                checkMoveReady(); // Re-verify state
             }
+        });
+        
+        document.getElementById('stopMoveBtn').addEventListener('click', () => {
+            isProcessing = false;
+            logMsg("SYSTEM", "Stopping... finishing current file...", "orange");
         });
 
         function logMsg(name, msg, color) {
