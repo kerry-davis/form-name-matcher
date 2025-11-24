@@ -159,6 +159,11 @@
             justify-content: space-between;
             align-items: center;
             font-size: 0.9em;
+            cursor: pointer; /* Visual cue */
+        }
+        
+        .file-item:hover {
+            background-color: rgba(0,0,0,0.05);
         }
         
         .file-item:last-child { border-bottom: none; }
@@ -248,7 +253,9 @@
                 <div id="listC" class="file-list" style="display:none"></div>
 
                 <div class="button-container">
-                    <button id="downloadCsvBtn" class="button btn-warning">Download CSV Report</button>
+                    <button id="downloadCsvBtnA" class="button btn-danger" style="display:none;">Download Category A CSV</button>
+                    <button id="downloadCsvBtnB" class="button btn-primary" style="display:none;">Download Category B CSV</button>
+                    <button id="downloadCsvBtnC" class="button btn-warning" style="display:none;">Download Category C CSV</button>
                 </div>
             </div>
         </div>
@@ -549,31 +556,56 @@
             files.forEach(f => {
                 const div = document.createElement('div');
                 div.className = 'file-item';
+                div.title = "Double-click to open PDF in new tab"; // Hover Tooltip
                 div.innerHTML = `
                     <span>${f.relativePath}</span>
                     <span class="reason-tag">${f.reason}</span>
                 `;
+                
+                // Double-click to open
+                div.addEventListener('dblclick', async () => {
+                    try {
+                        const file = await f.handle.getFile();
+                        const url = URL.createObjectURL(file);
+                        window.open(url, '_blank');
+                        // Note: Revoke logic is tricky with open-in-new-tab, browser handles cleanup usually on close
+                    } catch(e) {
+                        alert("Could not open file: " + e.message);
+                    }
+                });
+
                 container.appendChild(div);
             });
         }
 
         window.showTab = function(cat) {
             ['A', 'B', 'C'].forEach(c => {
-                document.getElementById(`list${c}`).style.display = (c === cat) ? 'block' : 'none';
-                // Update button styles active state logic if needed
+                const isMatch = (c === cat);
+                document.getElementById(`list${c}`).style.display = isMatch ? 'block' : 'none';
+                // Show relevant download button
+                document.getElementById(`downloadCsvBtn${c}`).style.display = isMatch ? 'inline-block' : 'none';
             });
             // Simple generic tab toggle
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
         };
 
-        // CSV Export
-        document.getElementById('downloadCsvBtn').addEventListener('click', () => {
-            if (allFiles.length === 0) return;
+        // CSV Export - Split into 3 functions
+        function downloadCsvForCategory(cat) {
+            const files = allFiles.filter(f => f.category === cat);
+            if (files.length === 0) {
+                alert(`No files in Category ${cat} to export.`);
+                return;
+            }
+            
             let csv = "FilePath,FileName,Category,Reason,MoveStatus\n";
-            allFiles.forEach(f => {
-                // Escape comma in path
-                const path = `"${f.relativePath}"`;
+            files.forEach(f => {
+                // Remove filename from path (get directory only)
+                // relativePath is "Subfolder/File.pdf" -> "Subfolder"
+                const lastSlashIndex = f.relativePath.lastIndexOf('/');
+                const dirPath = lastSlashIndex > -1 ? f.relativePath.substring(0, lastSlashIndex) : '';
+
+                const path = `"${dirPath}"`; // Directory Only
                 const reason = `"${f.reason}"`;
                 csv += `${path},${f.name},${f.category},${reason},Pending\n`;
             });
@@ -582,9 +614,13 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `pdf-analysis-${new Date().toISOString().slice(0,10)}.csv`;
+            a.download = `pdf-analysis-${cat}-${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.csv`;
             a.click();
-        });
+        }
+
+        document.getElementById('downloadCsvBtnA').addEventListener('click', () => downloadCsvForCategory('A'));
+        document.getElementById('downloadCsvBtnB').addEventListener('click', () => downloadCsvForCategory('B'));
+        document.getElementById('downloadCsvBtnC').addEventListener('click', () => downloadCsvForCategory('C'));
 
         document.getElementById('resetBtn1').addEventListener('click', () => {
             allFiles = [];
@@ -694,10 +730,18 @@
                     }
 
                     // 1. Find File in Source
-                    // path is "Subfolder/File.pdf"
+                    // CSV Row Path is now just "Subfolder" (Directory). Filename is separate.
+                    // We need to reconstruct: Subfolder + / + FileName
+                    
                     // IMPORTANT: We need to split by '/' but handle potential OS path separators if manual CSV editing happened.
                     // Assuming standard forward slash from our export.
-                    const pathParts = row.path.split('/');
+                    let pathParts = row.path ? row.path.split('/') : [];
+                    // Filter empty parts (e.g. if path was empty string for root)
+                    pathParts = pathParts.filter(p => p);
+                    
+                    // Add the filename to the end to find the specific file object
+                    pathParts.push(row.name);
+
                     let currentHandle = sourceDirHandle2;
                     let fileHandle = null;
                     let parentHandle = sourceDirHandle2; // To delete later
