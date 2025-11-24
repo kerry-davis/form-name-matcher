@@ -573,34 +573,35 @@
                     return { ...res, category: 'A', reason: 'No Form Fields' };
                 }
 
-                // --- NEW: Page 1 "Postcode" Check (Edge Case Filter) ---
-                // If Postcode field is locked, it goes to C, even if Office Use boxes are open.
+                // --- NEW: Page 1 "Legal business name" Check (Edge Case Filter) ---
+                // If this field is locked, it goes to A, even if Office Use boxes are open.
                 
                 const page1TextItems = textContent1.items;
-                const postcodeItem = page1TextItems.find(item => item.str.trim().toLowerCase() === "postcode");
+                // Loose match for "legal business name"
+                const legalNameItem = page1TextItems.find(item => item.str.toLowerCase().includes("legal business name"));
                 
-                if (postcodeItem) {
+                if (legalNameItem) {
                     const p1Anns = await page1.getAnnotations();
                     const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget'); // Text fields, etc.
                     
-                    // Spatial Search: Find field to the RIGHT of "Postcode"
-                    // Postcode item rect: [x, y, w, h] (approx from transform)
-                    // Text transform [scaleX, skewY, skewX, scaleY, x, y]
-                    const pcX = postcodeItem.transform[4];
-                    const pcY = postcodeItem.transform[5]; // Baseline Y
+                    const labelX = legalNameItem.transform[4];
+                    const labelY = legalNameItem.transform[5]; // Baseline Y
                     
                     // Find widget that is:
-                    // 1. To the right (x > pcX)
-                    // 2. Roughly same Y line (within ~20 units vertical)
-                    const postcodeField = p1Widgets.find(w => {
-                        const wx = w.rect[0]; // Left X
-                        const wy = w.rect[1]; // Bottom Y
-                        return (wx > pcX) && (Math.abs(wy - pcY) < 50); // Tolerance
+                    // 1. Vertically BELOW the label (Y < labelY in PDF coords)
+                    // 2. Close proximity (within ~60 units)
+                    const targetField = p1Widgets.find(w => {
+                        const wx = w.rect[0]; 
+                        const wy = w.rect[1]; // Bottom Y of widget
+                        // Check if widget top (wy + height) is below label? 
+                        // Simplification: Check if widget center/bottom is less than labelY
+                        // but not too far down
+                        return (wy < labelY) && (Math.abs(labelY - wy) < 60);
                     });
 
-                    if (postcodeField) {
-                        const isPostcodeLocked = postcodeField.readOnly || (postcodeField.fieldFlags & 1) === 1;
-                        if (isPostcodeLocked) {
+                    if (targetField) {
+                        const isLocked = targetField.readOnly || (targetField.fieldFlags & 1) === 1;
+                        if (isLocked) {
                             // FIXED LOGIC: If main form is locked, it is "Non-Editable" -> Folder A
                             return { ...res, category: 'A', reason: 'Non-Editable (Main Form Locked)' };
                         }
