@@ -556,7 +556,7 @@
                 const textContent1 = await page1.getTextContent();
                 const page1Text = textContent1.items.map(item => item.str).join(' ');
                 if (!page1Text.toLowerCase().includes("annual enterprise survey")) {
-                     return { ...res, reason: 'Not Survey Form' }; // Retain A
+                     return { ...res, reason: 'Non-Editable' }; // Retain A
                 }
 
                 const p1Anns = await page1.getAnnotations();
