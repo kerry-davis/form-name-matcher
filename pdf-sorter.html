@@ -389,36 +389,45 @@
             let results = [];
             const kaPattern = /^KA\d{8}.*\.pdf$/i;
 
-            for await (const entry of dirHandle.values()) {
-                if (entry.kind === 'directory') {
-                    // Go deeper - PASS entry as the new parentHandle for the recursive call logic
-                    const subPath = path ? `${path}/${entry.name}` : entry.name;
-                    const subResults = await scanForPdfs(entry, subPath);
-                    results = results.concat(subResults);
-                } else if (entry.kind === 'file') {
-                    // Check filename pattern
-                    if (kaPattern.test(entry.name)) {
-                         results.push({
-                            name: entry.name,
-                            handle: entry,
-                            parentHandle: dirHandle, // CRITICAL FIX: Use the current dirHandle context
-                            relativePath: path ? `${path}/${entry.name}` : entry.name
-                        });
+            try {
+                for await (const entry of dirHandle.values()) {
+                    try {
+                        if (entry.kind === 'directory') {
+                            // Go deeper - PASS entry as the new parentHandle for the recursive call logic
+                            const subPath = path ? `${path}/${entry.name}` : entry.name;
+                            const subResults = await scanForPdfs(entry, subPath);
+                            results = results.concat(subResults);
+                        } else if (entry.kind === 'file') {
+                            // Check filename pattern
+                            if (kaPattern.test(entry.name)) {
+                                results.push({
+                                    name: entry.name,
+                                    handle: entry,
+                                    parentHandle: dirHandle, // CRITICAL FIX: Use the current dirHandle context
+                                    relativePath: path ? `${path}/${entry.name}` : entry.name
+                                });
+                            }
+                        }
+                    } catch (innerErr) {
+                        console.warn(`Skipping entry ${entry.name} due to error:`, innerErr);
                     }
                 }
+            } catch (dirErr) {
+                console.warn(`Error reading directory ${dirHandle.name}:`, dirErr);
             }
             return results;
         }
 
         // Core Analysis Logic
         async function analyzePdf(fileObj) {
-            const fileData = await fileObj.handle.getFile();
-            const arrayBuffer = await fileData.arrayBuffer();
-
             // Default Result
             const res = { ...fileObj, category: 'C', reason: 'Unknown' };
 
             try {
+                // MOVED INSIDE TRY BLOCK: File Reading
+                const fileData = await fileObj.handle.getFile();
+                const arrayBuffer = await fileData.arrayBuffer();
+
                 // 1. Load PDF
                 const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
                 const pdf = await loadingTask.promise;
