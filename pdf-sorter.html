@@ -231,6 +231,18 @@
             </div>
             <div id="sourcePathDisplay" class="status-box">No folder selected</div>
 
+            <div style="text-align:center; margin-bottom:15px;">
+                <label style="margin-right:15px; cursor:pointer;">
+                    <input type="radio" name="scanMode" value="subfolders" checked> Scan Subfolders Only
+                </label>
+                <label style="margin-right:15px; cursor:pointer;">
+                    <input type="radio" name="scanMode" value="root"> Scan Root Only
+                </label>
+                <label style="cursor:pointer;">
+                    <input type="radio" name="scanMode" value="both"> Scan Both
+                </label>
+            </div>
+
             <div class="button-container">
                 <button id="analyzeBtn" class="button btn-primary" disabled>Analyze PDFs</button>
                 <button id="resetBtn1" class="button btn-danger">Reset</button>
@@ -425,7 +437,10 @@
             
             try {
                 txt.textContent = "Scanning folders...";
-                const filesToProcess = await scanForPdfs(sourceDirHandle);
+                // Get selected scan mode
+                const mode = document.querySelector('input[name="scanMode"]:checked').value;
+                
+                const filesToProcess = await scanForPdfs(sourceDirHandle, '', 0, mode);
                 
                 let processed = 0;
                 for (const file of filesToProcess) {
@@ -446,7 +461,7 @@
         });
 
         // Recursive Scan for KA*.pdf in subfolders
-        async function scanForPdfs(dirHandle, path = '') {
+        async function scanForPdfs(dirHandle, path = '', depth = 0, mode = 'subfolders') {
             let results = [];
             const kaPattern = /^KA\d{8}.*\.pdf$/i;
 
@@ -454,11 +469,27 @@
                 for await (const entry of dirHandle.values()) {
                     try {
                         if (entry.kind === 'directory') {
+                            // Logic: Recurse if mode is 'subfolders' or 'both'.
+                            // Also, if mode is 'root', we STOP at depth 0 (don't go deeper).
+                            if (mode === 'root') continue;
+
                             // Go deeper - PASS entry as the new parentHandle for the recursive call logic
                             const subPath = path ? `${path}/${entry.name}` : entry.name;
-                            const subResults = await scanForPdfs(entry, subPath);
+                            const subResults = await scanForPdfs(entry, subPath, depth + 1, mode);
                             results = results.concat(subResults);
                         } else if (entry.kind === 'file') {
+                            // Logic:
+                            // If mode 'subfolders': Process only if depth > 0
+                            // If mode 'root': Process only if depth == 0
+                            // If mode 'both': Process all
+                            
+                            let shouldProcess = false;
+                            if (mode === 'both') shouldProcess = true;
+                            else if (mode === 'root' && depth === 0) shouldProcess = true;
+                            else if (mode === 'subfolders' && depth > 0) shouldProcess = true;
+
+                            if (!shouldProcess) continue;
+
                             // Check filename pattern
                             if (kaPattern.test(entry.name)) {
                                 results.push({
