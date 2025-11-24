@@ -473,36 +473,49 @@
                 let processedCount = 0;
                 const total = filesToProcess.length;
                 
-                // Helper for concurrency
-                async function processBatch(files) {
-                    const promises = files.map(async (file) => {
-                        if (!isProcessing) return null;
-                        const result = await analyzePdf(file);
-                        processedCount++;
-                        // Update UI every few items or strictly on batch end?
-                        // Updating text content in rAF to avoid UI lag on heavy layout thrashing
-                        requestAnimationFrame(() => {
-                             txt.textContent = `Analyzing ${processedCount}/${total}`;
+                // Helper for Dynamic Concurrency Pool
+                async function runConcurrentPool(items, limit, taskFn) {
+                    const results = [];
+                    const executing = new Set();
+                    
+                    let lastUpdate = 0;
+
+                    for (const item of items) {
+                        if (!isProcessing) break;
+
+                        const p = taskFn(item).then(res => {
+                            executing.delete(p);
+                            processedCount++;
+                            
+                            // Throttle UI updates to every 100ms
+                            const now = Date.now();
+                            if (now - lastUpdate > 100) {
+                                lastUpdate = now;
+                                requestAnimationFrame(() => {
+                                    txt.textContent = `Analyzing ${processedCount}/${total}`;
+                                });
+                            }
+                            
+                            return res;
                         });
-                        return result;
-                    });
-                    return Promise.all(promises);
+                        
+                        results.push(p);
+                        executing.add(p);
+                        
+                        if (executing.size >= limit) {
+                            await Promise.race(executing);
+                        }
+                    }
+                    return Promise.all(results);
                 }
 
-                const BATCH_SIZE = 16; // Adjust based on PDF.js memory usage
-                for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
-                    if (!isProcessing) {
-                        txt.textContent = "Analysis Stopped.";
-                        break;
-                    }
-                    const batch = filesToProcess.slice(i, i + BATCH_SIZE);
-                    const results = await processBatch(batch);
-                    
-                    // Filter out nulls (stopped items)
-                    results.forEach(r => {
-                        if (r) allFiles.push(r);
-                    });
-                }
+                const CONCURRENCY_LIMIT = 8; // Active workers
+                const results = await runConcurrentPool(filesToProcess, CONCURRENCY_LIMIT, analyzePdf);
+                
+                // Filter and store valid results
+                results.forEach(r => {
+                    if (r) allFiles.push(r);
+                });
 
                 displayResults();
                 
