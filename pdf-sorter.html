@@ -288,6 +288,13 @@
             </div>
 
             <div class="button-container">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                    <input type="checkbox" id="generateSummaryCheckbox" checked>
+                    Generate Summary CSV Report
+                </label>
+            </div>
+
+            <div class="button-container">
                 <button id="executeMoveBtn" class="button btn-primary" disabled>Execute Move</button>
                 <button id="resetBtn2" class="button btn-danger">Reset</button>
             </div>
@@ -384,8 +391,9 @@
 
             for await (const entry of dirHandle.values()) {
                 if (entry.kind === 'directory') {
-                    // Go deeper
-                    const subResults = await scanForPdfs(entry, path ? `${path}/${entry.name}` : entry.name);
+                    // Go deeper - PASS entry as the new parentHandle for the recursive call logic
+                    const subPath = path ? `${path}/${entry.name}` : entry.name;
+                    const subResults = await scanForPdfs(entry, subPath);
                     results = results.concat(subResults);
                 } else if (entry.kind === 'file') {
                     // Check filename pattern
@@ -393,7 +401,7 @@
                          results.push({
                             name: entry.name,
                             handle: entry,
-                            parentHandle: dirHandle,
+                            parentHandle: dirHandle, // CRITICAL FIX: Use the current dirHandle context
                             relativePath: path ? `${path}/${entry.name}` : entry.name
                         });
                     }
@@ -645,23 +653,41 @@
         document.getElementById('executeMoveBtn').addEventListener('click', async () => {
             const loading = document.getElementById('loading2');
             const log = document.getElementById('moveLog');
+            const generateSummary = document.getElementById('generateSummaryCheckbox').checked;
+            
             loading.style.display = 'block';
             log.style.display = 'block';
             log.innerHTML = '';
+            
+            const summaryData = []; // Store for CSV export
 
             try {
                 for (const row of csvData) {
                     const cat = row.category.trim().toUpperCase();
                     const targetFolder = destHandles[cat];
                     
+                    const summaryRow = {
+                        FileName: row.name,
+                        OriginalPath: row.path,
+                        Category: cat,
+                        DestinationFolder: targetFolder ? targetFolder.name : 'N/A',
+                        Status: 'Pending',
+                        Message: ''
+                    };
+                    
                     // If no folder selected for this category, skip
                     if (!targetFolder) {
                         logMsg(row.name, "Skipped - No destination folder for Category " + cat, 'grey');
+                        summaryRow.Status = 'Skipped';
+                        summaryRow.Message = "No destination folder for Category " + cat;
+                        summaryData.push(summaryRow);
                         continue;
                     }
 
                     // 1. Find File in Source
                     // path is "Subfolder/File.pdf"
+                    // IMPORTANT: We need to split by '/' but handle potential OS path separators if manual CSV editing happened.
+                    // Assuming standard forward slash from our export.
                     const pathParts = row.path.split('/');
                     let currentHandle = sourceDirHandle2;
                     let fileHandle = null;
@@ -669,16 +695,23 @@
 
                     try {
                         // Traverse to file
+                        // Note: pathParts includes filename at the end
                         for(let i=0; i<pathParts.length; i++) {
+                            const part = pathParts[i];
                             if (i === pathParts.length - 1) {
-                                fileHandle = await currentHandle.getFileHandle(pathParts[i]);
+                                // This is the file
+                                fileHandle = await currentHandle.getFileHandle(part);
                             } else {
-                                currentHandle = await currentHandle.getDirectoryHandle(pathParts[i]);
+                                // This is a folder
+                                currentHandle = await currentHandle.getDirectoryHandle(part);
                                 parentHandle = currentHandle;
                             }
                         }
                     } catch (e) {
                         logMsg(row.name, "File Not Found in Source", 'red');
+                        summaryRow.Status = 'Failed';
+                        summaryRow.Message = "File Not Found in Source";
+                        summaryData.push(summaryRow);
                         continue;
                     }
 
@@ -703,11 +736,36 @@
                         await parentHandle.removeEntry(fileHandle.name);
 
                         logMsg(row.name, `Moved to Folder ${cat}`, 'green');
+                        summaryRow.Status = 'Success';
+                        summaryRow.Message = `Moved to Folder ${cat}`;
 
                     } catch (e) {
                         logMsg(row.name, "Error Moving: " + e.message, 'red');
+                        summaryRow.Status = 'Failed';
+                        summaryRow.Message = "Error Moving: " + e.message;
                     }
+                    
+                    summaryData.push(summaryRow);
                 }
+                
+                // Generate and Download Summary CSV if requested
+                if (generateSummary && summaryData.length > 0) {
+                     let csvContent = "FileName,OriginalPath,Category,DestinationFolder,Status,Message\n";
+                     summaryData.forEach(row => {
+                         const escape = (val) => `"${String(val).replace(/"/g, '""')}"`;
+                         csvContent += `${escape(row.FileName)},${escape(row.OriginalPath)},${escape(row.Category)},${escape(row.DestinationFolder)},${escape(row.Status)},${escape(row.Message)}\n`;
+                     });
+                     
+                     const blob = new Blob([csvContent], { type: 'text/csv' });
+                     const url = URL.createObjectURL(blob);
+                     const a = document.createElement('a');
+                     a.href = url;
+                     a.download = `move-summary-${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.csv`;
+                     document.body.appendChild(a); // Append for Firefox support
+                     a.click();
+                     document.body.removeChild(a);
+                }
+
             } finally {
                 loading.style.display = 'none';
             }
