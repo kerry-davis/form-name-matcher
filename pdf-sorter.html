@@ -8,6 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Fix for standard font loading error
+        pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/';
     </script>
     <style>
         :root {
@@ -583,9 +585,6 @@
                 if (p1Widgets.length > 0) {
                     let lockedCount = 0;
                     for (const w of p1Widgets) {
-                        // DEBUG LOGging
-                        console.log(`File: ${fileObj.name} | Widget: ${w.fieldName} | Type: ${w.fieldType} | ReadOnly: ${w.readOnly} | Flags: ${w.fieldFlags}`);
-                        
                         // Check if locked
                         if (w.readOnly || (w.fieldFlags & 1) === 1) {
                             lockedCount++;
