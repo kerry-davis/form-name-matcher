@@ -537,125 +537,110 @@
 
         // Core Analysis Logic
         async function analyzePdf(fileObj) {
-            // Default Result
-            const res = { ...fileObj, category: 'C', reason: 'Unknown' };
+            // 1. Start: Default to Category 'A' (Non-Editable)
+            // This ensures that any error, missing fields, or locked status defaults here.
+            const res = { ...fileObj, category: 'A', reason: 'Default / Error / Non-Editable' };
 
             try {
-                // MOVED INSIDE TRY BLOCK: File Reading
                 const fileData = await fileObj.handle.getFile();
                 const arrayBuffer = await fileData.arrayBuffer();
 
-                // 1. Load PDF
+                // Load PDF
                 const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
                 const pdf = await loadingTask.promise;
 
-                // 2. Check Page 1 Header ("Annual Enterprise Survey")
+                // --- CHECK 1: Page 1 Analysis (Is it Editable?) ---
                 const page1 = await pdf.getPage(1);
+                
+                // Optional: Check Header (to ensure it's the right form type)
                 const textContent1 = await page1.getTextContent();
                 const page1Text = textContent1.items.map(item => item.str).join(' ');
-                
                 if (!page1Text.toLowerCase().includes("annual enterprise survey")) {
-                    return { ...res, category: 'A', reason: 'Not Survey Form' };
+                     return { ...res, reason: 'Not Survey Form' }; // Retain A
                 }
 
-                // 3. Check Encryption / Form Fields
-                // PDF.js handles encryption automatically by throwing PasswordException usually, 
-                // but we can check stats.
-                // Simplified: If we got here, it's readable. Check for form fields.
-                // Note: retrieving annotations from all pages to count fields
-                let totalFields = 0;
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const p = await pdf.getPage(i);
-                    const anns = await p.getAnnotations();
-                    const widgets = anns.filter(a => a.subtype === 'Widget');
-                    totalFields += widgets.length;
-                }
-
-                if (totalFields === 0) {
-                    return { ...res, category: 'A', reason: 'No Form Fields' };
-                }
-
-                // --- NEW: Global Page 1 Lock Check (Robust Edge Case Filter) ---
-                // Instead of finding one specific field, check if the majority of Page 1 fields are locked.
-                
                 const p1Anns = await page1.getAnnotations();
-                // BROADENED CHECK: Check ALL Widgets, not just 'Tx' (Text)
-                const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget'); 
-                
-                if (p1Widgets.length > 0) {
-                    let lockedCount = 0;
-                    for (const w of p1Widgets) {
-                        // Check if locked
-                        if (w.readOnly || (w.fieldFlags & 1) === 1) {
-                            lockedCount++;
-                        }
-                    }
-                    
-                    // Heuristic: If ANY single widget on Page 1 is locked, treat as Non-Editable.
-                    if (lockedCount > 0) {
-                         return { ...res, category: 'A', reason: `Non-Editable (Page 1 has ${lockedCount} locked fields)` };
+                const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget');
+
+                // If no widgets on Page 1 -> Not editable form -> Stay A
+                if (p1Widgets.length === 0) {
+                    return { ...res, reason: 'No Form Fields on Page 1' }; // Retain A
+                }
+
+                // Check for Locked Fields on Page 1
+                let p1LockedCount = 0;
+                for (const w of p1Widgets) {
+                    // Check readOnly flag or FieldFlags bit 1 (ReadOnly)
+                    if (w.readOnly || (w.fieldFlags & 1) === 1) {
+                        p1LockedCount++;
                     }
                 }
 
-                // 4. Last Page Analysis ("Office use:" + Tickboxes)
+                // If ANY field on Page 1 is locked -> Treat as Non-Editable -> Stay A
+                if (p1LockedCount > 0) {
+                    return { ...res, reason: `Non-Editable (Page 1 has ${p1LockedCount} locked fields)` }; // Retain A
+                }
+
+                // --- If we are here, Page 1 is Clean & Editable ---
+                // Now we determine if it goes to B or C based on "Office Use" section.
+
+                // --- CHECK 2: Office Use Section (Last Page) ---
                 const lastPage = await pdf.getPage(pdf.numPages);
-                
-                // Get Text "Office use:" Position
                 const lastPageText = await lastPage.getTextContent();
+                
+                // Find "Office use" text
                 const officeUseItem = lastPageText.items.find(item => 
                     item.str.toLowerCase().includes("office use") || 
                     item.str.toLowerCase().includes("office use:")
                 );
 
                 if (!officeUseItem) {
-                    return { ...res, category: 'C', reason: 'Missing "Office use:" section' };
+                    // If Office Use section is missing completely -> Treat as "Widgets Missing" -> Stay A
+                    // (Or arguably C, but plan says 'Widgets missing -> Do nothing (Retain A)')
+                    return { ...res, reason: 'Missing "Office use:" section' }; // Retain A
                 }
 
-                // PDF Coordinates: Origin (0,0) is usually Bottom-Left.
-                // So "Below" text means Y < officeUseItem.transform[5]
                 const textY = officeUseItem.transform[5]; 
-
-                // Get Checkboxes
                 const anns = await lastPage.getAnnotations();
-                const checkboxes = anns.filter(a => 
+                
+                // Find checkboxes physically below the "Office use" text
+                const relevantBoxes = anns.filter(a => 
                     a.subtype === 'Widget' && 
                     a.fieldType === 'Btn' && 
-                    !a.radioButton // Button but not radio
+                    !a.radioButton &&
+                    a.rect[1] < textY // Below text
                 );
 
-                // Filter spatially below the text
-                // Note: annotation rect is [x1, y1, x2, y2]. y1/y2 depend on rotation, but generally smaller Y is lower on page.
-                const relevantBoxes = checkboxes.filter(box => {
-                    const boxY = box.rect[1]; // Bottom Y
-                    return boxY < textY; // It is physically below the text header
-                });
-
                 if (relevantBoxes.length === 0) {
-                    return { ...res, category: 'C', reason: 'No checkboxes in Office Use section' };
+                    // No boxes found where they should be -> "Widgets missing" -> Stay A
+                    return { ...res, reason: 'No checkboxes in Office Use section' }; // Retain A
                 }
 
-                // Check Editability of these boxes
-                let hasEditable = false;
+                // Check if these specific boxes are Editable
+                let hasEditableOfficeBox = false;
                 for (const box of relevantBoxes) {
-                    // Bit 1 in FieldFlags = ReadOnly
                     const isReadOnly = box.readOnly || (box.fieldFlags & 1) === 1;
                     if (!isReadOnly) {
-                        hasEditable = true;
+                        hasEditableOfficeBox = true;
                         break;
                     }
                 }
 
-                if (hasEditable) {
-                    return { ...res, category: 'B', reason: 'Tickable Box Found' };
+                // --- FINAL OUTCOME ---
+                if (hasEditableOfficeBox) {
+                    // Page 1 Editable AND Office Use Tickable -> Folder B
+                    return { ...res, category: 'B', reason: 'Page 1 Editable & Office Use Tickable' };
                 } else {
-                    return { ...res, category: 'C', reason: 'Boxes Locked' };
+                    // Page 1 Editable BUT Office Use Locked -> Folder C
+                    return { ...res, category: 'C', reason: 'Page 1 Editable but Office Use Locked' };
                 }
 
             } catch (err) {
+                // Any error -> Stay A
                 if (err.name === 'PasswordException') {
-                    return { ...res, category: 'A', reason: 'Encrypted' };
+                    return { ...res, reason: 'Encrypted / Password Protected' };
                 }
-                return { ...res, category: 'A', reason: 'Error: ' + err.message };
+                return { ...res, reason: 'Error: ' + err.message };
             }
         }
 
