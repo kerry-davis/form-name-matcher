@@ -550,6 +550,39 @@
                     return { ...res, category: 'A', reason: 'No Form Fields' };
                 }
 
+                // --- NEW: Page 1 "Postcode" Check (Edge Case Filter) ---
+                // If Postcode field is locked, it goes to C, even if Office Use boxes are open.
+                
+                const page1TextItems = textContent1.items;
+                const postcodeItem = page1TextItems.find(item => item.str.trim().toLowerCase() === "postcode");
+                
+                if (postcodeItem) {
+                    const p1Anns = await page1.getAnnotations();
+                    const p1Widgets = p1Anns.filter(a => a.subtype === 'Widget'); // Text fields, etc.
+                    
+                    // Spatial Search: Find field to the RIGHT of "Postcode"
+                    // Postcode item rect: [x, y, w, h] (approx from transform)
+                    // Text transform [scaleX, skewY, skewX, scaleY, x, y]
+                    const pcX = postcodeItem.transform[4];
+                    const pcY = postcodeItem.transform[5]; // Baseline Y
+                    
+                    // Find widget that is:
+                    // 1. To the right (x > pcX)
+                    // 2. Roughly same Y line (within ~20 units vertical)
+                    const postcodeField = p1Widgets.find(w => {
+                        const wx = w.rect[0]; // Left X
+                        const wy = w.rect[1]; // Bottom Y
+                        return (wx > pcX) && (Math.abs(wy - pcY) < 50); // Tolerance
+                    });
+
+                    if (postcodeField) {
+                        const isPostcodeLocked = postcodeField.readOnly || (postcodeField.fieldFlags & 1) === 1;
+                        if (isPostcodeLocked) {
+                            return { ...res, category: 'C', reason: 'Main Form Locked (Postcode)' };
+                        }
+                    }
+                }
+
                 // 4. Last Page Analysis ("Office use:" + Tickboxes)
                 const lastPage = await pdf.getPage(pdf.numPages);
                 
