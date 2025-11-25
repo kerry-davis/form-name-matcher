@@ -620,6 +620,7 @@
             // 1. Start: Default to Category 'A' (Non-Editable)
             // This ensures that any error, missing fields, or locked status defaults here.
             const res = { ...fileObj, category: 'A', reason: 'Default / Error / Non-Editable' };
+            let pdf = null;
 
             try {
                 const fileData = await fileObj.handle.getFile();
@@ -627,7 +628,7 @@
 
                 // Load PDF
                 const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-                const pdf = await loadingTask.promise;
+                pdf = await loadingTask.promise;
 
                 // --- CHECK 1: Page 1 Analysis (Is it Editable?) ---
                 const page1 = await pdf.getPage(1);
@@ -725,6 +726,11 @@
                     return { ...res, reason: 'Encrypted / Password Protected' };
                 }
                 return { ...res, reason: 'Error: ' + err.message };
+            } finally {
+                // CRITICAL MEMORY CLEANUP
+                if (pdf) {
+                    await pdf.destroy();
+                }
             }
         }
 
