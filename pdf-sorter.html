@@ -685,30 +685,24 @@
                 const textY = officeUseItem.transform[5]; 
                 const anns = await lastPage.getAnnotations();
                 
-                // Find checkboxes on the last page (RELAXED: Anywhere on page, not just below text)
-                // If "Office Use" text exists, we assume any checkbox on this page is relevant.
+                // Find checkboxes physically below the "Office use" text
+                // We use a loose threshold (+20) to handle minor alignment issues, 
+                // but STRICTLY exclude boxes significantly higher up (user boxes).
                 const relevantBoxes = anns.filter(a => 
                     a.subtype === 'Widget' && 
                     a.fieldType === 'Btn' && 
                     !a.radioButton &&
-                    (a.rect[1] < textY + 500) // Loose check or just take all. Removing strict constraint.
+                    a.rect[1] < (textY + 20) // Must be below or just inline with the text
                 );
 
-                // ACTUALLY REMOVING SPATIAL CHECK completely as per plan
-                const finalBoxes = anns.filter(a => 
-                     a.subtype === 'Widget' && 
-                     a.fieldType === 'Btn' && 
-                     !a.radioButton
-                );
-
-                if (finalBoxes.length === 0) {
-                    // If text is found but no boxes, it's effectively "Not Tickable" -> C
+                if (relevantBoxes.length === 0) {
+                    // If text is found but no boxes in the office section, it's effectively "Not Tickable" -> C
                     return { ...res, category: 'C', reason: 'No checkboxes found in Office Use section' }; 
                 }
 
-                // Check if these specific boxes are Editable
+                // Check if these specific OFFICE boxes are Editable
                 let hasEditableOfficeBox = false;
-                for (const box of finalBoxes) {
+                for (const box of relevantBoxes) {
                     const isReadOnly = box.readOnly || (box.fieldFlags & 1) === 1;
                     if (!isReadOnly) {
                         hasEditableOfficeBox = true;
