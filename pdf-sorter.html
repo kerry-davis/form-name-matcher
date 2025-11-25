@@ -1001,6 +1001,8 @@
             log.style.display = 'block';
             log.innerHTML = '';
             isProcessing = true;
+            const loadingText2 = document.getElementById('loadingText2');
+            loadingText2.textContent = "Starting..."; // Reset default text
             
             const summaryData = []; // Store for CSV export
 
@@ -1028,6 +1030,9 @@
                             logMsg("SYSTEM", "Process stopped by user", "orange");
                             break; // Stop check inner loop
                         }
+
+                        const action = isCopyOnly ? "Copying" : "Moving";
+                        loadingText2.textContent = `${action} ${row.name}...`;
 
                         const summaryRow = {
                             FileName: row.name,
@@ -1115,23 +1120,28 @@
                                     
                                     // BETTER STRATEGY: Traverse Last Page Annotations directly
                                     const lastPage = pdfDoc.getPage(pageCount - 1);
-                                    // This gets us low-level references. We need to map them back to Fields.
-                                    // Actually, let's just iterate ALL fields, and check coordinates if we can map them to the last page.
-                                    // OR: Just rely on the fact that "dta" is the 4th box from left in the bottom-most group.
+                                    const lastPageAnnots = lastPage.node.Annots(); // Returns PDFArray or undefined
+                                    const lastPageAnnotRefs = new Set();
+
+                                    if (lastPageAnnots) {
+                                        // pdf-lib returns wrapped objects. We need to map them to unique strings/refs
+                                        for (let i = 0; i < lastPageAnnots.size(); i++) {
+                                            const ref = lastPageAnnots.get(i);
+                                            // "ref" here might be the annotation object or a reference. 
+                                            // In the raw node structure, it's usually a reference.
+                                            lastPageAnnotRefs.add(ref.toString());
+                                        }
+                                    }
                                     
                                     const candidates = [];
                                     for (const box of checkboxes) {
                                         const widgets = box.acroField.getWidgets();
                                         widgets.forEach(w => {
-                                            // Check if widget is on last page
-                                            // Implementation note: pdf-lib 'w.P()' returns a Ref. We compare with lastPage.ref
-                                            if (w.P().toString() === lastPage.ref.toString()) {
+                                            // FIX: Compare widget ref with page's annot refs
+                                            // w.ref is the reference of the widget object
+                                            if (lastPageAnnotRefs.has(w.ref.toString())) {
                                                 const rect = w.getRectangle();
-                                                candidates.push({ 
-                                                    field: box, 
-                                                    x: rect.x, 
-                                                    y: rect.y 
-                                                });
+                                                candidates.push({ field: box, x: rect.x, y: rect.y });
                                             }
                                         });
                                     }
