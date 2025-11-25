@@ -818,6 +818,8 @@
                 if (sourceDirHandle) {
                     dirPath = dirPath ? `${sourceDirHandle.name}/${dirPath}` : sourceDirHandle.name;
                 }
+                // Cleanup any trailing slashes if logic above left them (e.g. "Root/")
+                if (dirPath.endsWith('/')) dirPath = dirPath.slice(0, -1);
 
                 const path = `"${dirPath}"`; // Directory Only
                 const reason = `"${f.reason}"`;
@@ -977,8 +979,17 @@
 
                         // 1. Find File in Source
                         // CSV Row Path is "Subfolder" (Directory). Filename is separate.
-                        let pathParts = row.path ? row.path.split('/') : [];
-                        pathParts = pathParts.filter(p => p);
+                        let rawPath = row.path || '';
+                        // Remove quotes just in case
+                        rawPath = rawPath.replace(/^"|"$/g, '');
+                        let pathParts = rawPath.split('/').filter(p => p);
+
+                        // FIX: If the CSV includes the root folder name (which we added), remove it
+                        // so we don't look for Root inside Root.
+                        if (pathParts.length > 0 && pathParts[0] === sourceDirHandle2.name) {
+                            pathParts.shift();
+                        }
+                        
                         pathParts.push(row.name);
 
                         let currentHandle = sourceDirHandle2;
