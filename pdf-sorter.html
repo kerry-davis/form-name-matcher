@@ -685,22 +685,30 @@
                 const textY = officeUseItem.transform[5]; 
                 const anns = await lastPage.getAnnotations();
                 
-                // Find checkboxes physically below the "Office use" text
+                // Find checkboxes on the last page (RELAXED: Anywhere on page, not just below text)
+                // If "Office Use" text exists, we assume any checkbox on this page is relevant.
                 const relevantBoxes = anns.filter(a => 
                     a.subtype === 'Widget' && 
                     a.fieldType === 'Btn' && 
                     !a.radioButton &&
-                    a.rect[1] < textY // Below text
+                    (a.rect[1] < textY + 500) // Loose check or just take all. Removing strict constraint.
                 );
 
-                if (relevantBoxes.length === 0) {
-                    // No boxes found where they should be -> "Widgets missing" -> Stay A
-                    return { ...res, reason: 'No checkboxes in Office Use section' }; // Retain A
+                // ACTUALLY REMOVING SPATIAL CHECK completely as per plan
+                const finalBoxes = anns.filter(a => 
+                     a.subtype === 'Widget' && 
+                     a.fieldType === 'Btn' && 
+                     !a.radioButton
+                );
+
+                if (finalBoxes.length === 0) {
+                    // If text is found but no boxes, it's effectively "Not Tickable" -> C
+                    return { ...res, category: 'C', reason: 'No checkboxes found in Office Use section' }; 
                 }
 
                 // Check if these specific boxes are Editable
                 let hasEditableOfficeBox = false;
-                for (const box of relevantBoxes) {
+                for (const box of finalBoxes) {
                     const isReadOnly = box.readOnly || (box.fieldFlags & 1) === 1;
                     if (!isReadOnly) {
                         hasEditableOfficeBox = true;
