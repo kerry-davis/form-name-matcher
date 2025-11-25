@@ -804,7 +804,12 @@
                 // Remove filename from path (get directory only)
                 // relativePath is "Subfolder/File.pdf" -> "Subfolder"
                 const lastSlashIndex = f.relativePath.lastIndexOf('/');
-                const dirPath = lastSlashIndex > -1 ? f.relativePath.substring(0, lastSlashIndex) : '';
+                let dirPath = lastSlashIndex > -1 ? f.relativePath.substring(0, lastSlashIndex) : '';
+
+                // Prepend the root folder name to give context
+                if (sourceDirHandle) {
+                    dirPath = dirPath ? `${sourceDirHandle.name}/${dirPath}` : sourceDirHandle.name;
+                }
 
                 const path = `"${dirPath}"`; // Directory Only
                 const reason = `"${f.reason}"`;
