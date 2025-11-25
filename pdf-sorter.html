@@ -648,17 +648,19 @@
                 }
 
                 // Check for Locked Fields on Page 1
-                let p1LockedCount = 0;
+                let p1EditableCount = 0;
                 for (const w of p1Widgets) {
                     // Check readOnly flag or FieldFlags bit 1 (ReadOnly)
-                    if (w.readOnly || (w.fieldFlags & 1) === 1) {
-                        p1LockedCount++;
+                    const isLocked = w.readOnly || (w.fieldFlags & 1) === 1;
+                    if (!isLocked) {
+                        p1EditableCount++;
                     }
                 }
 
-                // If ANY field on Page 1 is locked -> Treat as Non-Editable -> Stay A
-                if (p1LockedCount > 0) {
-                    return { ...res, reason: `Non-Editable (Page 1 has ${p1LockedCount} locked fields)` }; // Retain A
+                // If NO field on Page 1 is editable -> Treat as Non-Editable -> Stay A
+                // This allows forms with mixed locked/unlocked fields (like pre-filled ID) to pass.
+                if (p1EditableCount === 0) {
+                    return { ...res, reason: `Non-Editable (Page 1 has 0 editable fields)` }; // Retain A
                 }
 
                 // --- If we are here, Page 1 is Clean & Editable ---
