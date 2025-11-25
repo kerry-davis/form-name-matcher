@@ -313,6 +313,28 @@
                     text-align: left;
                 }
                 .file-status { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }
+                .tick-options {
+                    margin-top: 10px;
+                    font-size: 0.8rem;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                }
+                .tick-options label {
+                    display: flex;
+                    align-items: center;
+                    gap: 3px;
+                    cursor: pointer;
+                    background: rgba(0,0,0,0.1);
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                }
+                .copy-option {
+                    margin-top: 8px;
+                    font-size: 0.85rem;
+                    display: block;
+                    cursor: pointer;
+                }
             </style>
 
             <div style="margin-top:20px;">
@@ -320,6 +342,7 @@
                 <div class="move-row">
                     <div>
                         <h3 class="cat-a">Folder A<br><small>(Non-Editable)</small></h3>
+                        <label class="copy-option"><input type="checkbox" id="copyModeA"> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvA" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -338,6 +361,7 @@
                 <div class="move-row">
                     <div>
                         <h3 class="cat-b">Folder B<br><small>(Office Use: tickable)</small></h3>
+                        <label class="copy-option"><input type="checkbox" id="copyModeB"> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvB" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -345,6 +369,15 @@
                             <input type="file" id="csvInputB" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayB" class="file-status">No CSV loaded</div>
+                        <div class="tick-options">
+                            <strong>Tick:</strong>
+                            <label><input type="checkbox" class="tick-opt-b" value="0"> adr</label>
+                            <label><input type="checkbox" class="tick-opt-b" value="1"> brg</label>
+                            <label><input type="checkbox" class="tick-opt-b" value="2"> cmp</label>
+                            <label><input type="checkbox" class="tick-opt-b" value="3" checked> dta</label>
+                            <label><input type="checkbox" class="tick-opt-b" value="4"> phn</label>
+                            <label><input type="checkbox" class="tick-opt-b" value="5"> oth</label>
+                        </div>
                     </div>
                     <div>
                         <button id="btnDestB" class="button btn-primary" style="width:100%; font-size:0.8rem;" disabled>Select Folder B</button>
@@ -356,6 +389,7 @@
                 <div class="move-row">
                     <div>
                         <h3 class="cat-c">Folder C<br><small>(Office Use: not tickable)</small></h3>
+                        <label class="copy-option"><input type="checkbox" id="copyModeC"> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvC" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -958,9 +992,17 @@
                     
                     const data = csvDataStore[cat];
                     const targetFolder = destHandles[cat];
+                    const isCopyOnly = document.getElementById(`copyMode${cat}`).checked;
 
                     // Skip if not configured (CSV missing or Folder missing)
                     if (!data || !targetFolder) continue;
+
+                    // Get selected tick indices for Category B
+                    let selectedTickIndices = [];
+                    if (cat === 'B') {
+                        const opts = document.querySelectorAll('.tick-opt-b:checked');
+                        opts.forEach(opt => selectedTickIndices.push(parseInt(opt.value)));
+                    }
 
                     for (const row of data) {
                         if (!isProcessing) {
@@ -1086,22 +1128,30 @@
                                     
                                     // The Office Use section is at the bottom, so it should be the FIRST group in this sort (Lowest Y).
                                     // We expect 6 boxes: adr, brg, cmp, dta, phn, oth.
-                                    // "dta" is index 3 (0, 1, 2, 3).
+                                    // Indices: 0=adr, 1=brg, 2=cmp, 3=dta, 4=phn, 5=oth.
                                     
-                                    if (candidates.length >= 4) {
-                                        // Safety check: Ensure we are targeting the bottom-most row. 
-                                        // The sorted array starts with the bottom-most elements.
-                                        // Check if the 4th element (index 3) is roughly on the same Y as the 1st element.
-                                        if (Math.abs(candidates[3].y - candidates[0].y) < 20) {
-                                            const dtaField = candidates[3].field;
-                                            dtaField.check();
-                                            fileArrayBuffer = await pdfDoc.save(); // Update buffer to write
-                                            summaryRow.Message += " [Auto-Ticked 'dta']";
+                                    if (candidates.length >= 6) { // Expect at least 6 for a full row
+                                        // Check if the first 6 form a consistent row (similar Y)
+                                        // We check if index 5 (last of the 6) is aligned with index 0.
+                                        if (Math.abs(candidates[5].y - candidates[0].y) < 20) {
+                                            let tickedCount = 0;
+                                            // Apply user selections
+                                            selectedTickIndices.forEach(idx => {
+                                                if (candidates[idx]) {
+                                                    candidates[idx].field.check();
+                                                    tickedCount++;
+                                                }
+                                            });
+                                            
+                                            if (tickedCount > 0) {
+                                                fileArrayBuffer = await pdfDoc.save(); // Update buffer to write
+                                                summaryRow.Message += ` [Auto-Ticked ${tickedCount} boxes]`;
+                                            }
                                         } else {
-                                            summaryRow.Message += " [Warning: Layout mismatch, 'dta' not ticked]";
+                                            summaryRow.Message += " [Warning: Layout mismatch (not a single row), no boxes ticked]";
                                         }
                                     } else {
-                                        summaryRow.Message += " [Warning: Not enough checkboxes, 'dta' not ticked]";
+                                        summaryRow.Message += ` [Warning: Found only ${candidates.length} checkboxes, expected 6+. No boxes ticked]`;
                                     }
                                     
                                 } catch (pdfLibErr) {
