@@ -297,11 +297,11 @@
             <style>
                 .move-row {
                     display: grid;
-                    grid-template-columns: 1fr 1.5fr 1.5fr;
-                    gap: 15px;
-                    align-items: center;
+                    grid-template-columns: 0.8fr 2fr 1.5fr; /* Adjusted columns for better spacing */
+                    gap: 20px;
+                    align-items: start; /* Top alignment fixes button misalignment */
                     background: rgba(255,255,255,0.05);
-                    padding: 15px;
+                    padding: 25px;
                     border: 1px solid var(--border-color);
                     border-radius: 8px;
                     margin-bottom: 15px;
@@ -312,28 +312,47 @@
                     border: none;
                     text-align: left;
                 }
+                /* Flex column for vertical rhythm in each cell */
+                .move-row > div {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }
                 .file-status { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }
                 .tick-options {
-                    margin-top: 10px;
-                    font-size: 0.8rem;
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
+                    margin-top: 15px;
+                    font-size: 0.85rem;
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr); /* Clean grid layout */
+                    gap: 10px;
+                    background: rgba(0,0,0,0.05);
+                    padding: 10px;
+                    border-radius: 6px;
+                }
+                .tick-options strong {
+                    grid-column: 1 / -1; /* Span full width */
+                    margin-bottom: 5px;
+                    display: block;
                 }
                 .tick-options label {
                     display: flex;
                     align-items: center;
-                    gap: 3px;
+                    gap: 6px;
                     cursor: pointer;
-                    background: rgba(0,0,0,0.1);
-                    padding: 2px 6px;
+                    padding: 4px;
                     border-radius: 4px;
                 }
+                .tick-options label:hover {
+                    background: rgba(0,0,0,0.05);
+                }
                 .copy-option {
-                    margin-top: 8px;
-                    font-size: 0.85rem;
-                    display: block;
+                    margin-top: 5px;
+                    font-size: 0.9rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
                     cursor: pointer;
+                    opacity: 0.9;
                 }
             </style>
 
@@ -1135,20 +1154,27 @@
                                         // We check if index 5 (last of the 6) is aligned with index 0.
                                         if (Math.abs(candidates[5].y - candidates[0].y) < 20) {
                                             let tickedCount = 0;
-                                            // Apply user selections
-                                            selectedTickIndices.forEach(idx => {
-                                                if (candidates[idx]) {
-                                                    candidates[idx].field.check();
-                                                    tickedCount++;
-                                                }
-                                            });
+                                            let untickedCount = 0;
                                             
-                                            if (tickedCount > 0) {
+                                            // Enforce state for ALL 6 boxes based on selection
+                                            for (let i = 0; i < 6; i++) {
+                                                if (candidates[i]) {
+                                                    if (selectedTickIndices.includes(i)) {
+                                                        candidates[i].field.check();
+                                                        tickedCount++;
+                                                    } else {
+                                                        candidates[i].field.uncheck();
+                                                        untickedCount++;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (tickedCount > 0 || untickedCount > 0) {
                                                 fileArrayBuffer = await pdfDoc.save(); // Update buffer to write
-                                                summaryRow.Message += ` [Auto-Ticked ${tickedCount} boxes]`;
+                                                summaryRow.Message += ` [Updated: ${tickedCount} Checked, ${untickedCount} Unchecked]`;
                                             }
                                         } else {
-                                            summaryRow.Message += " [Warning: Layout mismatch (not a single row), no boxes ticked]";
+                                            summaryRow.Message += " [Warning: Layout mismatch (not a single row), no boxes modified]";
                                         }
                                     } else {
                                         summaryRow.Message += ` [Warning: Found only ${candidates.length} checkboxes, expected 6+. No boxes ticked]`;
@@ -1174,11 +1200,16 @@
                             await writable.write(fileArrayBuffer);
                             await writable.close();
 
-                            await parentHandle.removeEntry(fileHandle.name);
-
-                            logMsg(row.name, `Moved to ${targetFolder.name}`, 'green');
-                            summaryRow.Status = 'Success';
-                            summaryRow.Message = `Moved to ${targetFolder.name}`;
+                            if (!isCopyOnly) {
+                                await parentHandle.removeEntry(fileHandle.name);
+                                logMsg(row.name, `Moved to ${targetFolder.name}`, 'green');
+                                summaryRow.Status = 'Success';
+                                summaryRow.Message += ` [Moved]`;
+                            } else {
+                                logMsg(row.name, `Copied to ${targetFolder.name}`, 'blue');
+                                summaryRow.Status = 'Success';
+                                summaryRow.Message += ` [Copied]`;
+                            }
 
                         } catch (e) {
                             logMsg(row.name, "Error Moving: " + e.message, 'red');
