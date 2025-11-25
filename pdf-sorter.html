@@ -11,6 +11,7 @@
         // Fix for standard font loading error
         pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/';
     </script>
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <style>
         :root {
             --bg-primary: #f4f6f9;
@@ -1005,7 +1006,100 @@
 
                         // 2. Move
                         try {
-                            const fileData = await fileHandle.getFile();
+                            let fileData = await fileHandle.getFile();
+                            let fileArrayBuffer = await fileData.arrayBuffer();
+                            
+                            // === AUTOMATED MODIFICATION FOR CATEGORY B ===
+                            if (cat === 'B') {
+                                try {
+                                    // Load with pdf-lib
+                                    const pdfDoc = await PDFLib.PDFDocument.load(fileArrayBuffer);
+                                    const form = pdfDoc.getForm();
+                                    const fields = form.getFields();
+                                    const pageCount = pdfDoc.getPageCount();
+
+                                    // We need to find the widgets on the LAST page to sort them spatially.
+                                    // PDF-Lib fields reference widgets (refs). We need to resolve them to find their page/rect.
+                                    // Simplified strategy: Get all checkbox fields, check if they belong to the last page,
+                                    // and sort them by coordinate (Bottom-Up, Left-Right).
+                                    
+                                    const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
+                                    const relevantBoxes = [];
+
+                                    for (const box of checkboxes) {
+                                        const widgets = box.acroField.getWidgets();
+                                        // A field can have multiple widgets, but usually 1 for these forms.
+                                        for (const w of widgets) {
+                                            const pRef = w.P();
+                                            // This is low-level. Easier way: 
+                                            // We assume the Office Use boxes are at the BOTTOM of the LAST page.
+                                            // Let's get their coordinates.
+                                            const rect = w.getRectangle();
+                                            // Check if this widget is on the last page? 
+                                            // PDF-Lib doesn't easily map field->page index without traversing pages.
+                                            // So we traverse the last page's annotations instead.
+                                        }
+                                    }
+                                    
+                                    // BETTER STRATEGY: Traverse Last Page Annotations directly
+                                    const lastPage = pdfDoc.getPage(pageCount - 1);
+                                    // This gets us low-level references. We need to map them back to Fields.
+                                    // Actually, let's just iterate ALL fields, and check coordinates if we can map them to the last page.
+                                    // OR: Just rely on the fact that "dta" is the 4th box from left in the bottom-most group.
+                                    
+                                    const candidates = [];
+                                    for (const box of checkboxes) {
+                                        const widgets = box.acroField.getWidgets();
+                                        widgets.forEach(w => {
+                                            // Check if widget is on last page
+                                            // Implementation note: pdf-lib 'w.P()' returns a Ref. We compare with lastPage.ref
+                                            if (w.P().toString() === lastPage.ref.toString()) {
+                                                const rect = w.getRectangle();
+                                                candidates.push({ 
+                                                    field: box, 
+                                                    x: rect.x, 
+                                                    y: rect.y 
+                                                });
+                                            }
+                                        });
+                                    }
+
+                                    // Sort: Primary Y (Ascending/Bottom-up? No, PDF coords Y=0 is bottom), Secondary X (Left-Right)
+                                    // We want the group with the LOWEST Y (closest to bottom).
+                                    // Group them by Y with some tolerance (e.g. 5 points)
+                                    candidates.sort((a, b) => {
+                                        const yDiff = Math.abs(a.y - b.y);
+                                        if (yDiff < 10) return a.x - b.x; // Same row, sort Left-Right
+                                        return a.y - b.y; // Different row, sort Bottom-Up (Lowest Y first)
+                                    });
+                                    
+                                    // The Office Use section is at the bottom, so it should be the FIRST group in this sort (Lowest Y).
+                                    // We expect 6 boxes: adr, brg, cmp, dta, phn, oth.
+                                    // "dta" is index 3 (0, 1, 2, 3).
+                                    
+                                    if (candidates.length >= 4) {
+                                        // Safety check: Ensure we are targeting the bottom-most row. 
+                                        // The sorted array starts with the bottom-most elements.
+                                        // Check if the 4th element (index 3) is roughly on the same Y as the 1st element.
+                                        if (Math.abs(candidates[3].y - candidates[0].y) < 20) {
+                                            const dtaField = candidates[3].field;
+                                            dtaField.check();
+                                            fileArrayBuffer = await pdfDoc.save(); // Update buffer to write
+                                            summaryRow.Message += " [Auto-Ticked 'dta']";
+                                        } else {
+                                            summaryRow.Message += " [Warning: Layout mismatch, 'dta' not ticked]";
+                                        }
+                                    } else {
+                                        summaryRow.Message += " [Warning: Not enough checkboxes, 'dta' not ticked]";
+                                    }
+                                    
+                                } catch (pdfLibErr) {
+                                    console.error(pdfLibErr);
+                                    summaryRow.Message += ` [Error Ticking: ${pdfLibErr.message}]`;
+                                }
+                            }
+                            // =============================================
+
                             // Check collision
                             let newName = row.name;
                             try {
@@ -1015,7 +1109,8 @@
 
                             const newFileHandle = await targetFolder.getFileHandle(newName, { create: true });
                             const writable = await newFileHandle.createWritable();
-                            await writable.write(fileData);
+                            // Write the (potentially modified) buffer
+                            await writable.write(fileArrayBuffer);
                             await writable.close();
 
                             await parentHandle.removeEntry(fileHandle.name);
