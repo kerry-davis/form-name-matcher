@@ -1118,32 +1118,72 @@
                                         }
                                     }
                                     
-                                    // BETTER STRATEGY: Traverse Last Page Annotations directly
+                                    // BETTER STRATEGY: Top-Down Traversal (Page -> Annotations -> Fields)
                                     const lastPage = pdfDoc.getPage(pageCount - 1);
                                     const lastPageAnnots = lastPage.node.Annots(); // Returns PDFArray or undefined
-                                    const lastPageAnnotRefs = new Set();
+                                    const candidates = [];
 
                                     if (lastPageAnnots) {
-                                        // pdf-lib returns wrapped objects. We need to map them to unique strings/refs
-                                        for (let i = 0; i < lastPageAnnots.size(); i++) {
-                                            const ref = lastPageAnnots.get(i);
-                                            // "ref" here might be the annotation object or a reference. 
-                                            // In the raw node structure, it's usually a reference.
-                                            lastPageAnnotRefs.add(ref.toString());
+                                        // Create a map of Ref -> Field for all checkboxes to handle indirections
+                                        const refToFieldMap = new Map();
+                                        
+                                        // Helper to map field refs
+                                        for (const field of checkboxes) {
+                                            // Key can be the Field Ref itself
+                                            if (field.ref) refToFieldMap.set(field.ref.toString(), field);
+                                            
+                                            // Or the Widget Ref if it's separate
+                                            const widgets = field.acroField.getWidgets();
+                                            widgets.forEach(w => {
+                                                if (w.ref) refToFieldMap.set(w.ref.toString(), field);
+                                            });
                                         }
-                                    }
-                                    
-                                    const candidates = [];
-                                    for (const box of checkboxes) {
-                                        const widgets = box.acroField.getWidgets();
-                                        widgets.forEach(w => {
-                                            // FIX: Compare widget ref with page's annot refs
-                                            // w.ref is the reference of the widget object
-                                            if (lastPageAnnotRefs.has(w.ref.toString())) {
-                                                const rect = w.getRectangle();
-                                                candidates.push({ field: box, x: rect.x, y: rect.y });
+
+                                        // Traverse the page's annotations
+                                        for (let i = 0; i < lastPageAnnots.size(); i++) {
+                                            const annotRef = lastPageAnnots.get(i); // This might be a Ref or a Direct Dict
+                                            let annotDict = null;
+                                            let annotStr = null;
+
+                                            if (annotRef instanceof PDFLib.PDFRef) {
+                                                annotStr = annotRef.toString();
+                                                annotDict = pdfDoc.context.lookup(annotRef);
+                                            } else if (annotRef instanceof PDFLib.PDFDict) {
+                                                annotDict = annotRef; // Direct object
                                             }
-                                        });
+
+                                            if (!annotDict) continue;
+
+                                            // Check if it is a Widget
+                                            const subtype = annotDict.get(PDFLib.PDFName.of('Subtype'));
+                                            if (subtype !== PDFLib.PDFName.of('Widget')) continue;
+
+                                            // Try to find the linked Field
+                                            let matchedField = null;
+                                            
+                                            // Strategy A: Ref match (if indirect)
+                                            if (annotStr && refToFieldMap.has(annotStr)) {
+                                                matchedField = refToFieldMap.get(annotStr);
+                                            }
+                                            
+                                            // Strategy B: Parent lookup (if Widget is child of Field)
+                                            if (!matchedField) {
+                                                const parent = annotDict.get(PDFLib.PDFName.of('Parent'));
+                                                if (parent instanceof PDFLib.PDFRef && refToFieldMap.has(parent.toString())) {
+                                                    matchedField = refToFieldMap.get(parent.toString());
+                                                }
+                                            }
+
+                                            // If found and it's a Checkbox, save it
+                                            if (matchedField && matchedField instanceof PDFLib.PDFCheckBox) {
+                                                const rectArr = annotDict.get(PDFLib.PDFName.of('Rect'));
+                                                if (rectArr && rectArr instanceof PDFLib.PDFArray) {
+                                                    const x = rectArr.get(0).asNumber();
+                                                    const y = rectArr.get(1).asNumber();
+                                                    candidates.push({ field: matchedField, x, y });
+                                                }
+                                            }
+                                        }
                                     }
 
                                     // Sort: Primary Y (Ascending/Bottom-up? No, PDF coords Y=0 is bottom), Secondary X (Left-Right)
