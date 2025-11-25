@@ -763,14 +763,15 @@
             files.forEach(f => {
                 const div = document.createElement('div');
                 div.className = 'file-item';
-                div.title = "Click to open PDF in new tab"; // Hover Tooltip
+                div.title = "Ctrl+Click to open PDF in new tab"; // Hover Tooltip
                 div.innerHTML = `
                     <span>${f.relativePath}</span>
                     <span class="reason-tag">${f.reason}</span>
                 `;
                 
                 // Click to open
-                div.addEventListener('click', async () => {
+                div.addEventListener('click', async (e) => {
+                    if (!e.ctrlKey && !e.metaKey) return; // specific user request
                     try {
                         const file = await f.handle.getFile();
                         const url = URL.createObjectURL(file);
