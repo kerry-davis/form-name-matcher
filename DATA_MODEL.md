@@ -52,6 +52,7 @@ erDiagram
   MOVEMENT_OP {
     string status "Pending|Success|Failed"
     boolean copyOnly "flag"
+    boolean tickOverride "True if user overrides PDF ticks"
     boolean tickModified "True if B checkboxes updated"
   }
 ```
@@ -62,7 +63,9 @@ Notes:
     - **Category A**: Default state. Assigned if: regex fails, "Annual Enterprise Survey" missing, Page 1 has no editable widgets, or any error occurs.
     - **Category B**: Assigned if: Page 1 has editable widgets **AND** the "Office Use" section on the last page contains editable checkboxes.
     - **Category C**: Assigned if: Page 1 has editable widgets **BUT** the "Office Use" section is missing, invalid, or locked.
-- **B-Category Modification**: When moving Category B files, the system actively injects checkbox states (ticks `dta`, unticks others) based on spatial sorting (bottom-up, left-right) of the last page's widget annotations.
+- **B-Category Modification**: When moving Category B files, the system **optionally** injects checkbox states.
+    - **Default**: Retains existing PDF ticks (No modification).
+    - **Override Mode**: If enabled by user, it ticks `dta` (or user selection) and unticks others based on spatial sorting of the last page's widget annotations.
 
 ## 2) CSV I/O Data Models
 
@@ -155,8 +158,14 @@ erDiagram
     string id "phase1-container|phase2-container"
     boolean visible
   }
+
+  PHASE2_ROW {
+    string id "rowA|rowB|rowC"
+    boolean collapsed "Expanded/Collapsed state"
+  }
 ```
 
 Notes:
 - **Dark Mode**: Persisted in `localStorage` (`darkMode`). Applied via CSS root variables.
 - **Phase Isolation**: The UI strictly separates Phase 1 (Analysis) and Phase 2 (Movement). Data does not automatically flow from Phase 1 to Phase 2; it MUST go through the CSV Export -> CSV Import cycle to allow human review/editing.
+- **Phase 2 Collapsible Sections**: Rows A, B, and C are collapsible accordion panels. Toggling reduces visual clutter, hiding CSV controls and options while keeping the header visible. The state (expanded/collapsed) is currently transient (not persisted).

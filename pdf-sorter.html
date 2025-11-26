@@ -351,13 +351,54 @@
                     cursor: pointer;
                     opacity: 0.9;
                 }
+
+                /* Minimizing Styles */
+                .move-row { transition: all 0.3s ease; }
+                .move-row.collapsed {
+                    grid-template-columns: 1fr; /* Single full-width column */
+                    padding: 10px 25px;
+                    gap: 0;
+                }
+                .move-row.collapsed > div:nth-child(2),
+                .move-row.collapsed > div:nth-child(3) {
+                    display: none;
+                }
+                .move-row.collapsed .copy-option {
+                    display: none;
+                }
+                /* Improved Minimize Styles */
+                .move-row-header {
+                    display: flex;
+                    align-items: center;
+                    cursor: pointer;
+                    padding: 5px;
+                    border-radius: 4px;
+                    margin-bottom: 5px;
+                }
+                .move-row-header:hover {
+                    background-color: rgba(0,0,0,0.03);
+                }
+                .toggle-icon {
+                    margin-right: 8px;
+                    font-size: 0.8rem;
+                    transition: transform 0.3s ease;
+                    display: inline-block;
+                    color: var(--text-secondary);
+                }
+                /* Rotate icon when collapsed (point right) */
+                .move-row.collapsed .toggle-icon {
+                    transform: rotate(-90deg);
+                }
             </style>
 
             <div style="margin-top:20px;">
                 <!-- Row A -->
-                <div class="move-row">
+                <div class="move-row" id="rowA">
                     <div>
-                        <h3 class="cat-a">Folder A<br><small>(Non-Editable)</small></h3>
+                        <div class="move-row-header" onclick="toggleRow('rowA')">
+                            <span class="toggle-icon">▼</span>
+                            <h3 class="cat-a" style="border:none; margin:0;">Folder A<br><small>(Non-Editable)</small></h3>
+                        </div>
                         <label class="copy-option"><input type="checkbox" id="copyModeA"> Copy Only</label>
                     </div>
                     <div>
@@ -374,9 +415,12 @@
                 </div>
 
                 <!-- Row B -->
-                <div class="move-row">
+                <div class="move-row" id="rowB">
                     <div>
-                        <h3 class="cat-b">Folder B<br><small>(Office Use: tickable)</small></h3>
+                         <div class="move-row-header" onclick="toggleRow('rowB')">
+                            <span class="toggle-icon">▼</span>
+                            <h3 class="cat-b" style="border:none; margin:0;">Folder B<br><small>(Office Use: tickable)</small></h3>
+                        </div>
                         <label class="copy-option"><input type="checkbox" id="copyModeB"> Copy Only</label>
                     </div>
                     <div>
@@ -406,9 +450,12 @@
                 </div>
 
                 <!-- Row C -->
-                <div class="move-row">
+                <div class="move-row" id="rowC">
                     <div>
-                        <h3 class="cat-c">Folder C<br><small>(Office Use: not tickable)</small></h3>
+                         <div class="move-row-header" onclick="toggleRow('rowC')">
+                            <span class="toggle-icon">▼</span>
+                            <h3 class="cat-c" style="border:none; margin:0;">Folder C<br><small>(Office Use: not tickable)</small></h3>
+                        </div>
                         <label class="copy-option"><input type="checkbox" id="copyModeC"> Copy Only</label>
                     </div>
                     <div>
@@ -1330,6 +1377,10 @@
             window.location.reload();
         });
 
+        window.toggleRow = function(rowId) {
+            const row = document.getElementById(rowId);
+            row.classList.toggle('collapsed');
+        };
     </script>
 </body>
 </html>
