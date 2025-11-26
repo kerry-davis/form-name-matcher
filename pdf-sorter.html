@@ -322,9 +322,6 @@
                 .tick-options {
                     margin-top: 15px;
                     font-size: 0.85rem;
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr); /* Clean grid layout */
-                    gap: 10px;
                     background: rgba(0,0,0,0.05);
                     padding: 10px;
                     border-radius: 6px;
@@ -388,14 +385,18 @@
                             <input type="file" id="csvInputB" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayB" class="file-status">No CSV loaded</div>
-                        <div class="tick-options">
-                            <strong>Tick:</strong>
-                            <label><input type="checkbox" class="tick-opt-b" value="0"> adr</label>
-                            <label><input type="checkbox" class="tick-opt-b" value="1"> brg</label>
-                            <label><input type="checkbox" class="tick-opt-b" value="2"> cmp</label>
-                            <label><input type="checkbox" class="tick-opt-b" value="3" checked> dta</label>
-                            <label><input type="checkbox" class="tick-opt-b" value="4"> phn</label>
-                            <label><input type="checkbox" class="tick-opt-b" value="5"> oth</label>
+                        <div class="tick-options" style="display:flex; flex-wrap:wrap; align-items:center; gap:15px;">
+                            <label style="font-weight:bold; color:var(--accent-primary); cursor:pointer; white-space:nowrap;">
+                                <input type="checkbox" id="cbOverrideB"> Override PDF
+                            </label>
+                            <div id="containerTicksB" style="display:flex; gap:8px; opacity:0.5; pointer-events:none; align-items:center;">
+                                <label><input type="checkbox" class="tick-opt-b" value="0"> adr</label>
+                                <label><input type="checkbox" class="tick-opt-b" value="1"> brg</label>
+                                <label><input type="checkbox" class="tick-opt-b" value="2"> cmp</label>
+                                <label><input type="checkbox" class="tick-opt-b" value="3" checked> dta</label>
+                                <label><input type="checkbox" class="tick-opt-b" value="4"> phn</label>
+                                <label><input type="checkbox" class="tick-opt-b" value="5"> oth</label>
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -944,6 +945,18 @@
         document.getElementById('btnDestB').addEventListener('click', () => pickDest('B'));
         document.getElementById('btnDestC').addEventListener('click', () => pickDest('C'));
 
+        // Override Checkbox Toggle
+        document.getElementById('cbOverrideB').addEventListener('change', (e) => {
+            const container = document.getElementById('containerTicksB');
+            if (e.target.checked) {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+            } else {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+            }
+        });
+
         function checkMoveReady() {
             if (!sourceDirHandle2) {
                 document.getElementById('executeMoveBtn').disabled = true;
@@ -1087,7 +1100,8 @@
                             let fileArrayBuffer = await fileData.arrayBuffer();
                             
                             // === AUTOMATED MODIFICATION FOR CATEGORY B ===
-                            if (cat === 'B') {
+                            const shouldOverride = document.getElementById('cbOverrideB').checked;
+                            if (cat === 'B' && shouldOverride) {
                                 try {
                                     // Load with pdf-lib
                                     const pdfDoc = await PDFLib.PDFDocument.load(fileArrayBuffer);
