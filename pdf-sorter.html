@@ -596,7 +596,17 @@
                 <p id="loadingText2">Moving files...</p>
             </div>
 
-            <div id="moveLog" class="file-list" style="display:none; height: 200px;"></div>
+            <div id="moveResultsArea" class="results-section" style="display:none; margin-top:20px;">
+                <div class="tab-container">
+                    <button id="logTabBtnA" class="tab-btn active" onclick="showLogTab('A')">Log A <span id="logCountA">0</span></button>
+                    <button id="logTabBtnB" class="tab-btn" onclick="showLogTab('B')">Log B <span id="logCountB">0</span></button>
+                    <button id="logTabBtnC" class="tab-btn" onclick="showLogTab('C')">Log C <span id="logCountC">0</span></button>
+                </div>
+
+                <div id="moveListA" class="file-list"></div>
+                <div id="moveListB" class="file-list" style="display:none"></div>
+                <div id="moveListC" class="file-list" style="display:none"></div>
+            </div>
         </div>
 
         <div id="processingTimeContainer" class="container" style="display: none; margin-top: 20px;">
@@ -613,6 +623,7 @@
         // Phase 2 State
         let csvDataStore = { A: null, B: null, C: null };
         let destHandles = { A: null, B: null, C: null };
+        let logCounts = { A: 0, B: 0, C: 0 }; // Track move counts
         let sourceDirHandle2 = null;
         
         let isProcessing = false; // Global stop flag
@@ -1199,16 +1210,27 @@
 
         document.getElementById('executeMoveBtn').addEventListener('click', async () => {
             const loading = document.getElementById('loading2');
-            const log = document.getElementById('moveLog');
+            const resultsArea = document.getElementById('moveResultsArea');
+            
+            // Reset Logs
+            ['A', 'B', 'C'].forEach(c => {
+                document.getElementById(`moveList${c}`).innerHTML = '';
+                document.getElementById(`logCount${c}`).textContent = '0';
+            });
+            logCounts = { A: 0, B: 0, C: 0 };
+            
             const generateSummary = document.getElementById('generateSummaryCheckbox').checked;
             const stopBtn = document.getElementById('stopMoveBtn');
             const execBtn = document.getElementById('executeMoveBtn');
             
             loading.style.display = 'block';
+            resultsArea.style.display = 'block';
             stopBtn.style.display = 'inline-block';
             execBtn.disabled = true;
-            log.style.display = 'block';
-            log.innerHTML = '';
+            
+            // Default to showing Log A initially
+            showLogTab('A');
+            
             isProcessing = true;
             const loadingText2 = document.getElementById('loadingText2');
             loadingText2.textContent = "Starting..."; // Reset default text
@@ -1236,7 +1258,7 @@
 
                     for (const row of data) {
                         if (!isProcessing) {
-                            logMsg("SYSTEM", "Process stopped by user", "orange");
+                            logMsg(cat, "SYSTEM", "Process stopped by user", "orange");
                             break; // Stop check inner loop
                         }
 
@@ -1283,7 +1305,7 @@
                                 }
                             }
                         } catch (e) {
-                            logMsg(row.name, "File Not Found in Source", 'red');
+                            logMsg(cat, row.name, "File Not Found in Source", 'red');
                             summaryRow.Status = 'Failed';
                             summaryRow.Message = "File Not Found in Source";
                             summaryData.push(summaryRow);
@@ -1476,17 +1498,17 @@
 
                             if (!isCopyOnly) {
                                 await parentHandle.removeEntry(fileHandle.name);
-                                logMsg(row.name, `Moved to ${finalDestHandle.name}`, 'green', newFileHandle);
+                                logMsg(cat, row.name, `Moved to ${finalDestHandle.name}`, 'green', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Moved]`;
                             } else {
-                                logMsg(row.name, `Copied to ${finalDestHandle.name}`, 'blue', newFileHandle);
+                                logMsg(cat, row.name, `Copied to ${finalDestHandle.name}`, 'blue', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Copied]`;
                             }
 
                         } catch (e) {
-                            logMsg(row.name, "Error Moving: " + e.message, 'red');
+                            logMsg(cat, row.name, "Error Moving: " + e.message, 'red');
                             summaryRow.Status = 'Failed';
                             summaryRow.Message = "Error Moving: " + e.message;
                         }
@@ -1525,10 +1547,12 @@
         
         document.getElementById('stopMoveBtn').addEventListener('click', () => {
             isProcessing = false;
-            logMsg("SYSTEM", "Stopping... finishing current file...", "orange");
+            // Show stopping status in all logs? Or just UI text.
+            // logMsg("A", "SYSTEM", "Stopping... finishing current file...", "orange"); 
+            document.getElementById('loadingText2').textContent = "Stopping...";
         });
 
-        function logMsg(name, msg, color, fileHandle = null) {
+        function logMsg(cat, name, msg, color, fileHandle = null) {
             const div = document.createElement('div');
             div.className = 'file-item';
             div.innerHTML = `<span>${name}</span><span style="color:${color}">${msg}</span>`;
@@ -1552,8 +1576,26 @@
                 });
             }
 
-            document.getElementById('moveLog').appendChild(div);
+            const container = document.getElementById(`moveList${cat}`);
+            if(container) {
+                container.appendChild(div);
+                // Update count
+                logCounts[cat]++;
+                document.getElementById(`logCount${cat}`).textContent = logCounts[cat];
+            }
         }
+
+        // Phase 2 Tab Switching
+        window.showLogTab = function(cat) {
+            ['A', 'B', 'C'].forEach(c => {
+                const isMatch = (c === cat);
+                document.getElementById(`moveList${c}`).style.display = isMatch ? 'block' : 'none';
+                
+                const btn = document.getElementById(`logTabBtn${c}`);
+                if(isMatch) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        };
 
         document.getElementById('resetBtn2').addEventListener('click', () => {
             // Reload page for full clean slate
