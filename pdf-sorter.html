@@ -153,6 +153,8 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 10px;
+            resize: vertical; /* Allow vertical resizing */
+            min-height: 150px;
         }
 
         .file-item {
@@ -167,6 +169,11 @@
         
         .file-item:hover {
             background-color: rgba(0,0,0,0.05);
+        }
+
+        .file-item.visited {
+            background-color: rgba(106, 90, 205, 0.1); /* Subtle purple highlight */
+            border-left: 3px solid var(--accent-primary);
         }
         
         .file-item:last-child { border-bottom: none; }
@@ -977,6 +984,10 @@
                 // Click to open
                 div.addEventListener('click', async (e) => {
                     if (!e.ctrlKey && !e.metaKey) return; // specific user request
+                    
+                    // Add visited state
+                    div.classList.add('visited');
+                    
                     try {
                         const file = await f.handle.getFile();
                         const url = URL.createObjectURL(file);
