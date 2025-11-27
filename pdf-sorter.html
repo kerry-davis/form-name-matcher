@@ -598,9 +598,9 @@
 
             <div id="moveResultsArea" class="results-section" style="display:none; margin-top:20px;">
                 <div class="tab-container">
-                    <button id="logTabBtnA" class="tab-btn active" onclick="showLogTab('A')">Log A <span id="logCountA">0</span></button>
-                    <button id="logTabBtnB" class="tab-btn" onclick="showLogTab('B')">Log B <span id="logCountB">0</span></button>
-                    <button id="logTabBtnC" class="tab-btn" onclick="showLogTab('C')">Log C <span id="logCountC">0</span></button>
+                    <button id="logTabBtnA" class="tab-btn active" onclick="showLogTab('A')">Folder A (Non-Editable) <span id="logCountA">0</span></button>
+                    <button id="logTabBtnB" class="tab-btn" onclick="showLogTab('B')">Folder B (Office Use: tickable) <span id="logCountB">0</span></button>
+                    <button id="logTabBtnC" class="tab-btn" onclick="showLogTab('C')">Folder C (Office Use: not tickable) <span id="logCountC">0</span></button>
                 </div>
 
                 <div id="moveListA" class="file-list"></div>
@@ -1202,7 +1202,8 @@
                 data.push({
                     path: cols[0],
                     name: cols[1],
-                    category: cols[2] || '' // Optional read, we use the row's explicit assignment
+                    category: cols[2] || '',
+                    reason: cols[3] || '' // Capture Reason (Column 4)
                 });
             }
             return data;
@@ -1258,7 +1259,7 @@
 
                     for (const row of data) {
                         if (!isProcessing) {
-                            logMsg(cat, "SYSTEM", "Process stopped by user", "orange");
+                            logMsg(cat, "SYSTEM", "", "Process stopped by user", "orange");
                             break; // Stop check inner loop
                         }
 
@@ -1305,7 +1306,7 @@
                                 }
                             }
                         } catch (e) {
-                            logMsg(cat, row.name, "File Not Found in Source", 'red');
+                            logMsg(cat, row.name, row.reason, "File Not Found in Source", 'red');
                             summaryRow.Status = 'Failed';
                             summaryRow.Message = "File Not Found in Source";
                             summaryData.push(summaryRow);
@@ -1498,17 +1499,17 @@
 
                             if (!isCopyOnly) {
                                 await parentHandle.removeEntry(fileHandle.name);
-                                logMsg(cat, row.name, `Moved to ${finalDestHandle.name}`, 'green', newFileHandle);
+                                logMsg(cat, row.name, row.reason, "Moved", 'green', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Moved]`;
                             } else {
-                                logMsg(cat, row.name, `Copied to ${finalDestHandle.name}`, 'blue', newFileHandle);
+                                logMsg(cat, row.name, row.reason, "Copied", 'blue', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Copied]`;
                             }
 
                         } catch (e) {
-                            logMsg(cat, row.name, "Error Moving: " + e.message, 'red');
+                            logMsg(cat, row.name, row.reason, "Error Moving: " + e.message, 'red');
                             summaryRow.Status = 'Failed';
                             summaryRow.Message = "Error Moving: " + e.message;
                         }
@@ -1552,10 +1553,10 @@
             document.getElementById('loadingText2').textContent = "Stopping...";
         });
 
-        function logMsg(cat, name, msg, color, fileHandle = null) {
+        function logMsg(cat, name, reason, msg, color, fileHandle = null) {
             const div = document.createElement('div');
             div.className = 'file-item';
-            div.innerHTML = `<span>${name}</span><span style="color:${color}">${msg}</span>`;
+            div.innerHTML = `<span>${name}</span> <span class="reason-tag">${reason || ''}</span> <span style="color:${color}">${msg}</span>`;
             
             if (fileHandle) {
                 div.title = "Ctrl+Click to open moved file";
