@@ -956,6 +956,10 @@
             renderList('listA', groups.A);
             renderList('listB', groups.B);
             renderList('listC', groups.C);
+
+            // Fix: Initialize view state to match the default active tab (A)
+            // This ensures the correct Download button is visible immediately.
+            showTab('A');
         }
 
         function renderList(id, files) {
