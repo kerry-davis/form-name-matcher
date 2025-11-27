@@ -1000,7 +1000,10 @@
             });
             // Simple generic tab toggle
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
+            
+            // Fix: Explicitly target the correct button instead of relying on 'event' which fails when called programmatically
+            const activeBtn = document.querySelector(`button[onclick="showTab('${cat}')"]`);
+            if (activeBtn) activeBtn.classList.add('active');
         };
 
         // CSV Export - Split into 3 functions
