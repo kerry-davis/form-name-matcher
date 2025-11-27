@@ -163,9 +163,16 @@ erDiagram
     string id "rowA|rowB|rowC"
     boolean collapsed "Expanded/Collapsed state"
   }
+
+  LOG_ENTRY {
+    string fileName
+    string status
+    FileSystemHandle destHandle "For Ctrl+Click access"
+  }
 ```
 
 Notes:
 - **Dark Mode**: Persisted in `localStorage` (`darkMode`). Applied via CSS root variables.
 - **Phase Isolation**: The UI strictly separates Phase 1 (Analysis) and Phase 2 (Movement). Data does not automatically flow from Phase 1 to Phase 2; it MUST go through the CSV Export -> CSV Import cycle to allow human review/editing.
 - **Phase 2 Collapsible Sections**: Rows A, B, and C are collapsible accordion panels. Toggling reduces visual clutter, hiding CSV controls and options while keeping the header visible. The state (expanded/collapsed) is currently transient (not persisted).
+- **Log Interactivity**: Move/Copy logs retain a reference to the destination `FileSystemHandle`, enabling a "Ctrl+Click" action to instantly open the processed PDF for verification.

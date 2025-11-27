@@ -389,6 +389,21 @@
                 .move-row.collapsed .toggle-icon {
                     transform: rotate(-90deg);
                 }
+
+                /* Responsive Design */
+                @media (max-width: 900px) {
+                    .move-row {
+                        grid-template-columns: 1fr !important;
+                        gap: 15px;
+                    }
+                    /* Ensure tick options wrap nicely on smaller screens */
+                    .tick-options {
+                        flex-wrap: wrap;
+                    }
+                    #containerTicksB {
+                        flex-wrap: wrap;
+                    }
+                }
             </style>
 
             <div style="margin-top:20px;">
@@ -1313,11 +1328,11 @@
 
                             if (!isCopyOnly) {
                                 await parentHandle.removeEntry(fileHandle.name);
-                                logMsg(row.name, `Moved to ${targetFolder.name}`, 'green');
+                                logMsg(row.name, `Moved to ${targetFolder.name}`, 'green', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Moved]`;
                             } else {
-                                logMsg(row.name, `Copied to ${targetFolder.name}`, 'blue');
+                                logMsg(row.name, `Copied to ${targetFolder.name}`, 'blue', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Copied]`;
                             }
@@ -1365,10 +1380,26 @@
             logMsg("SYSTEM", "Stopping... finishing current file...", "orange");
         });
 
-        function logMsg(name, msg, color) {
+        function logMsg(name, msg, color, fileHandle = null) {
             const div = document.createElement('div');
             div.className = 'file-item';
             div.innerHTML = `<span>${name}</span><span style="color:${color}">${msg}</span>`;
+            
+            if (fileHandle) {
+                div.title = "Ctrl+Click to open moved file";
+                div.style.cursor = "pointer";
+                div.addEventListener('click', async (e) => {
+                    if (!e.ctrlKey && !e.metaKey) return;
+                    try {
+                        const file = await fileHandle.getFile();
+                        const url = URL.createObjectURL(file);
+                        window.open(url, '_blank');
+                    } catch (err) {
+                        alert("Error opening file: " + err.message);
+                    }
+                });
+            }
+
             document.getElementById('moveLog').appendChild(div);
         }
 
