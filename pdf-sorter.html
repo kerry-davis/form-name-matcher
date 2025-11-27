@@ -230,11 +230,11 @@
         <h1>PDF Form Sorter</h1>
         
         <div class="phase-selector">
-            <button class="phase-btn active" id="btnPhase1">1. Analyze & Export</button>
+            <button class="phase-btn active" id="btnPhase1">1. Analyse & Export</button>
             <button class="phase-btn" id="btnPhase2">2. Move via CSV</button>
         </div>
 
-        <!-- Phase 1: Analyze -->
+        <!-- Phase 1: Analyse -->
         <div id="phase1-container">
             <div class="button-container">
                 <button id="selectSourceBtn" class="button btn-secondary">Select Source Folder</button>
@@ -254,8 +254,8 @@
             </div>
 
             <div class="button-container">
-                <button id="analyzeBtn" class="button btn-primary" disabled>Analyze PDFs</button>
-                <button id="stopAnalyzeBtn" class="button btn-warning" style="display:none;">Stop Analysis</button>
+                <button id="analyseBtn" class="button btn-primary" disabled>Analyse PDFs</button>
+                <button id="stopAnalyseBtn" class="button btn-warning" style="display:none;">Stop Analysis</button>
                 <button id="resetBtn1" class="button btn-danger">Reset</button>
             </div>
 
@@ -640,23 +640,23 @@
             try {
                 sourceDirHandle = await window.showDirectoryPicker();
                 document.getElementById('sourcePathDisplay').textContent = `Selected: ${sourceDirHandle.name}`;
-                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('analyseBtn').disabled = false;
             } catch (err) { console.error(err); }
         });
 
-        document.getElementById('analyzeBtn').addEventListener('click', async () => {
+        document.getElementById('analyseBtn').addEventListener('click', async () => {
             if (!sourceDirHandle) return;
             
             const loading = document.getElementById('loading1');
             const txt = document.getElementById('loadingText1');
-            const stopBtn = document.getElementById('stopAnalyzeBtn');
-            const analyzeBtn = document.getElementById('analyzeBtn');
+            const stopBtn = document.getElementById('stopAnalyseBtn');
+            const analyseBtn = document.getElementById('analyseBtn');
             const timeContainer = document.getElementById('processingTimeContainer');
             
             loading.style.display = 'block';
             stopBtn.style.display = 'inline-block';
             timeContainer.style.display = 'none';
-            analyzeBtn.disabled = true; // Prevent double click
+            analyseBtn.disabled = true; // Prevent double click
             isProcessing = true;
             
             allFiles = [];
@@ -711,7 +711,7 @@
                 }
 
                 const CONCURRENCY_LIMIT = 8; // Active workers
-                const results = await runConcurrentPool(filesToProcess, CONCURRENCY_LIMIT, analyzePdf);
+                const results = await runConcurrentPool(filesToProcess, CONCURRENCY_LIMIT, analysePdf);
                 
                 // Filter and store valid results
                 results.forEach(r => {
@@ -729,11 +729,11 @@
             } finally {
                 loading.style.display = 'none';
                 stopBtn.style.display = 'none';
-                analyzeBtn.disabled = false;
+                analyseBtn.disabled = false;
             }
         });
         
-        document.getElementById('stopAnalyzeBtn').addEventListener('click', () => {
+        document.getElementById('stopAnalyseBtn').addEventListener('click', () => {
             isProcessing = false;
             document.getElementById('loadingText1').textContent = "Stopping...";
         });
@@ -817,7 +817,7 @@
         }
 
         // Core Analysis Logic
-        async function analyzePdf(fileObj) {
+        async function analysePdf(fileObj) {
             // 1. Start: Default to Category 'A' (Non-Editable)
             // This ensures that any error, missing fields, or locked status defaults here.
             const res = { ...fileObj, category: 'A', reason: 'Default / Error / Non-Editable' };
@@ -1043,7 +1043,7 @@
             resetLists();
             document.getElementById('sourcePathDisplay').textContent = 'No folder selected';
             sourceDirHandle = null;
-            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('analyseBtn').disabled = true;
         });
 
 
