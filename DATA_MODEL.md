@@ -66,6 +66,9 @@ Notes:
 - **B-Category Modification**: When moving Category B files, the system **optionally** injects checkbox states.
     - **Default**: Retains existing PDF ticks (No modification).
     - **Override Mode**: If enabled by user, it ticks `dta` (or user selection) and unticks others based on spatial sorting of the last page's widget annotations.
+- **Folder Retention**: 
+    - **Category A**: Retains the original source subdirectory structure (e.g., `Source/Sub/File.pdf` -> `Dest/Sub/File.pdf`).
+    - **Category B & C**: Flattens files into the destination root (e.g., `Source/Sub/File.pdf` -> `Dest/File.pdf`).
 
 ## 2) CSV I/O Data Models
 

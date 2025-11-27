@@ -1431,14 +1431,26 @@
                             }
                             // =============================================
 
+                            // Determine Destination Directory
+                            // For Category A: Retain the source folder structure
+                            let finalDestHandle = targetFolder;
+                            if (cat === 'A') {
+                                // pathParts currently holds [dir1, dir2, ..., filename]
+                                // We only want the directories.
+                                const dirsOnly = pathParts.slice(0, -1);
+                                for (const part of dirsOnly) {
+                                    finalDestHandle = await finalDestHandle.getDirectoryHandle(part, { create: true });
+                                }
+                            }
+
                             // Check collision
                             let newName = row.name;
                             try {
-                                await targetFolder.getFileHandle(newName);
+                                await finalDestHandle.getFileHandle(newName);
                                 newName = newName.replace('.pdf', `_${Date.now()}.pdf`);
                             } catch(e) {}
 
-                            const newFileHandle = await targetFolder.getFileHandle(newName, { create: true });
+                            const newFileHandle = await finalDestHandle.getFileHandle(newName, { create: true });
                             const writable = await newFileHandle.createWritable();
                             // Write the (potentially modified) buffer
                             await writable.write(fileArrayBuffer);
@@ -1446,11 +1458,11 @@
 
                             if (!isCopyOnly) {
                                 await parentHandle.removeEntry(fileHandle.name);
-                                logMsg(row.name, `Moved to ${targetFolder.name}`, 'green', newFileHandle);
+                                logMsg(row.name, `Moved to ${finalDestHandle.name}`, 'green', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Moved]`;
                             } else {
-                                logMsg(row.name, `Copied to ${targetFolder.name}`, 'blue', newFileHandle);
+                                logMsg(row.name, `Copied to ${finalDestHandle.name}`, 'blue', newFileHandle);
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Copied]`;
                             }
