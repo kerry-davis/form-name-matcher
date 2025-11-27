@@ -266,9 +266,9 @@
 
             <div id="resultsArea" class="results-section">
                 <div class="tab-container">
-                    <button class="tab-btn active" onclick="showTab('A')">Folder A (Non-Editable) <span id="countA">0</span></button>
-                    <button class="tab-btn" onclick="showTab('B')">Folder B (Office Use: tickable) <span id="countB">0</span></button>
-                    <button class="tab-btn" onclick="showTab('C')">Folder C (Office Use: not tickable) <span id="countC">0</span></button>
+                    <button id="tabBtnA" class="tab-btn active" onclick="showTab('A')">Folder A (Non-Editable) <span id="countA">0</span></button>
+                    <button id="tabBtnB" class="tab-btn" onclick="showTab('B')">Folder B (Office Use: tickable) <span id="countB">0</span></button>
+                    <button id="tabBtnC" class="tab-btn" onclick="showTab('C')">Folder C (Office Use: not tickable) <span id="countC">0</span></button>
                 </div>
 
                 <div id="listA" class="file-list"></div>
@@ -1001,8 +1001,8 @@
             // Simple generic tab toggle
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             
-            // Fix: Explicitly target the correct button instead of relying on 'event' which fails when called programmatically
-            const activeBtn = document.querySelector(`button[onclick="showTab('${cat}')"]`);
+            // Fix: Explicitly target the correct button via ID to avoid selector errors
+            const activeBtn = document.getElementById(`tabBtn${cat}`);
             if (activeBtn) activeBtn.classList.add('active');
         };
 
