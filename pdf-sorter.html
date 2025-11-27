@@ -414,7 +414,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-a" style="border:none; margin:0;">Folder A<br><small>(Non-Editable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="copyModeA"> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeA" disabled> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvA" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -436,7 +436,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-b" style="border:none; margin:0;">Folder B<br><small>(Office Use: tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="copyModeB"> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeB" disabled> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvB" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -444,11 +444,23 @@
                             <input type="file" id="csvInputB" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayB" class="file-status">No CSV loaded</div>
-                        <div class="tick-options" style="display:flex; flex-wrap:wrap; align-items:center; gap:15px;">
-                            <label style="font-weight:bold; color:var(--accent-primary); cursor:pointer; white-space:nowrap;">
-                                <input type="checkbox" id="cbOverrideB"> Override PDF
-                            </label>
-                            <div id="containerTicksB" style="display:flex; gap:8px; opacity:0.5; pointer-events:none; align-items:center;">
+                        
+                        <div class="tick-options">
+                            <!-- Mode Selector -->
+                            <div style="margin-bottom:10px; display:flex; flex-wrap:wrap; gap:15px; font-size:0.9rem; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:10px;">
+                                <label style="cursor:pointer; color:var(--text-primary);">
+                                    <input type="radio" name="tickMode" value="retain" checked disabled> Retain Original
+                                </label>
+                                <label style="cursor:pointer; color:var(--button-danger);">
+                                    <input type="radio" name="tickMode" value="force" disabled> Force Selection
+                                </label>
+                                <label style="cursor:pointer; color:var(--button-primary);">
+                                    <input type="radio" name="tickMode" value="add" disabled> Add Selection
+                                </label>
+                            </div>
+
+                            <!-- Tick Container -->
+                            <div id="containerTicksB" style="display:flex; gap:8px; opacity:0.5; pointer-events:none; align-items:center; flex-wrap:wrap;">
                                 <label><input type="checkbox" class="tick-opt-b" value="0"> adr</label>
                                 <label><input type="checkbox" class="tick-opt-b" value="1"> brg</label>
                                 <label><input type="checkbox" class="tick-opt-b" value="2"> cmp</label>
@@ -471,7 +483,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-c" style="border:none; margin:0;">Folder C<br><small>(Office Use: not tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="copyModeC"> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeC" disabled> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvC" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -964,6 +976,32 @@
 
 
         // --- Phase 2: Move Logic ---
+        
+        function setPhase2ControlsState(enabled) {
+             // Copy Checkboxes
+            ['A','B','C'].forEach(c => {
+                const el = document.getElementById(`copyMode${c}`);
+                if (el) el.disabled = !enabled;
+            });
+            
+            // Tick Mode Radios
+            document.querySelectorAll('input[name="tickMode"]').forEach(r => r.disabled = !enabled);
+            
+            // Tick Container: If disabled, force visual disable. If enabled, let logic decide based on radio.
+            const container = document.getElementById('containerTicksB');
+            if (!enabled) {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+            } else {
+                // If enabling, restore state based on currently checked radio
+                const mode = document.querySelector('input[name="tickMode"]:checked').value;
+                const isRetain = (mode === 'retain');
+                if (!isRetain) {
+                     container.style.opacity = '1';
+                     container.style.pointerEvents = 'auto';
+                }
+            }
+        }
 
         document.getElementById('selectSourceBtn2').addEventListener('click', async () => {
              try {
@@ -977,6 +1015,9 @@
                     if(lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
                     if(inp) { inp.disabled = false; }
                 });
+                
+                // Enable Controls
+                setPhase2ControlsState(true);
 
                 checkMoveReady();
             } catch (err) { console.error(err); }
@@ -1007,16 +1048,19 @@
         document.getElementById('btnDestB').addEventListener('click', () => pickDest('B'));
         document.getElementById('btnDestC').addEventListener('click', () => pickDest('C'));
 
-        // Override Checkbox Toggle
-        document.getElementById('cbOverrideB').addEventListener('change', (e) => {
-            const container = document.getElementById('containerTicksB');
-            if (e.target.checked) {
-                container.style.opacity = '1';
-                container.style.pointerEvents = 'auto';
-            } else {
-                container.style.opacity = '0.5';
-                container.style.pointerEvents = 'none';
-            }
+        // Override Checkbox Toggle - UPDATED for 3-way Radio
+        document.querySelectorAll('input[name="tickMode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const container = document.getElementById('containerTicksB');
+                const isRetain = (e.target.value === 'retain');
+                if (isRetain) {
+                    container.style.opacity = '0.5';
+                    container.style.pointerEvents = 'none';
+                } else {
+                    container.style.opacity = '1';
+                    container.style.pointerEvents = 'auto';
+                }
+            });
         });
 
         function checkMoveReady() {
@@ -1162,8 +1206,9 @@
                             let fileArrayBuffer = await fileData.arrayBuffer();
                             
                             // === AUTOMATED MODIFICATION FOR CATEGORY B ===
-                            const shouldOverride = document.getElementById('cbOverrideB').checked;
-                            if (cat === 'B' && shouldOverride) {
+                            const tickMode = document.querySelector('input[name="tickMode"]:checked').value;
+                            
+                            if (cat === 'B' && tickMode !== 'retain') {
                                 try {
                                     // Load with pdf-lib
                                     const pdfDoc = await PDFLib.PDFDocument.load(fileArrayBuffer);
@@ -1288,7 +1333,8 @@
                                                     if (selectedTickIndices.includes(i)) {
                                                         candidates[i].field.check();
                                                         tickedCount++;
-                                                    } else {
+                                                    } else if (tickMode === 'force') {
+                                                        // Only uncheck if mode is FORCE. If ADD, we skip this.
                                                         candidates[i].field.uncheck();
                                                         untickedCount++;
                                                     }
