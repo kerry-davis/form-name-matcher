@@ -66,6 +66,10 @@ Notes:
 - **B-Category Modification**: When moving Category B files, the system **optionally** injects checkbox states.
     - **Default**: Retains existing PDF ticks (No modification).
     - **Override Mode**: If enabled by user, it ticks `dta` (or user selection) and unticks others based on spatial sorting of the last page's widget annotations.
+- **C-Category Repair**: When moving Category C files, the system **optionally** repairs non-editable "Office Use" sections.
+    - **Input**: User provides a "Template PDF" (Category B) containing correct widgets.
+    - **Analysis**: System extracts widget coordinates (X, Y, W, H) from the template.
+    - **Execution**: Draws a white mask over the target file's old boxes and injects new interactive checkboxes at the template coordinates.
 - **Folder Retention**: 
     - **Category A**: Retains the original source subdirectory structure (e.g., `Source/Sub/File.pdf` -> `Dest/Sub/File.pdf`).
     - **Category B & C**: Flattens files into the destination root (e.g., `Source/Sub/File.pdf` -> `Dest/File.pdf`).
@@ -83,6 +87,8 @@ Filename: `pdf-analysis-{category}-{timestamp}.csv`
 | `Reason` | String | Human-readable string explaining the classification logic. |
 | `MoveStatus` | String | Static value "Pending" for template generation. |
 
+*Note: Phase 2 CSV parsing now explicitly captures the `Reason` column (index 3) to display in the Move Log.*
+
 ### Move Summary Schema (Output of Phase 2)
 Filename: `move-summary-{timestamp}.csv`
 
@@ -93,7 +99,7 @@ Filename: `move-summary-{timestamp}.csv`
 | `Category` | Enum | `A`, `B`, or `C`. |
 | `DestinationFolder` | String | Name of the target folder selected by the user. |
 | `Status` | Enum | `Success` or `Failed`. |
-| `Message` | String | Detailed error message or modification log (e.g., "[Updated: 1 Checked]"). |
+| `Message` | String | Detailed error message or modification log (e.g., "[Updated: 1 Checked]", "[Repaired]"). |
 
 ## 3) Service Layer Model (Logic Flow)
 
@@ -104,6 +110,7 @@ classDiagram
     +AnalyzedFile[] allFiles
     +boolean isProcessing
     +CsvStore csvData
+    +TemplateStore repairData
   }
 
   class AnalysisService {
@@ -122,6 +129,7 @@ classDiagram
   class MoveService {
     +processBatch(category, csvRows, destHandle)
     +modifyPdfForm(fileBuffer)
+    +repairPdfForm(fileBuffer, templateCoords)
     +verifySpatialLayout(widgets)
     +writeToDestination(buffer, handle)
   }
@@ -136,8 +144,9 @@ Notes:
 - **Concurrency**: Phase 1 analysis uses a custom promise pool (limit: 8 concurrent workers) to process file reading and `pdf.js` parsing in parallel without freezing the main thread.
 - **PDF Library Usage**: 
     - Phase 1 (Read-only) uses `pdf.js` for efficient text content and annotation inspection.
-    - Phase 2 (Read/Write) uses `pdf-lib` to modify form fields (ticking boxes) and save the resulting binary.
+    - Phase 2 (Read/Write) uses `pdf-lib` to modify form fields (ticking boxes), inject new widgets (Repair Mode), and save the resulting binary.
 - **Tick Logic Tolerance**: The `modifyPdfForm` logic uses spatial tolerance (y-diff < 10, x-sort) to identify the "Office Use" row even if visual alignment varies slightly between files.
+- **Repair Logic**: The `repairPdfForm` logic relies on exact coordinate matching between a user-provided Template PDF and the target files. It uses masking (white rectangles) to hide non-editable artifacts.
 
 ## 4) UI State & Persistence
 
@@ -170,6 +179,8 @@ erDiagram
   LOG_ENTRY {
     string fileName
     string status
+    string reason
+    boolean visited "Visual highlight state"
     FileSystemHandle destHandle "For Ctrl+Click access"
   }
 ```
@@ -179,3 +190,7 @@ Notes:
 - **Phase Isolation**: The UI strictly separates Phase 1 (Analysis) and Phase 2 (Movement). Data does not automatically flow from Phase 1 to Phase 2; it MUST go through the CSV Export -> CSV Import cycle to allow human review/editing.
 - **Phase 2 Collapsible Sections**: Rows A, B, and C are collapsible accordion panels. Toggling reduces visual clutter, hiding CSV controls and options while keeping the header visible. The state (expanded/collapsed) is currently transient (not persisted).
 - **Log Interactivity**: Move/Copy logs retain a reference to the destination `FileSystemHandle`, enabling a "Ctrl+Click" action to instantly open the processed PDF for verification.
+- **List Features**: Both Phase 1 and Phase 2 lists support:
+    - **Resizing**: Vertical resize handle for better visibility.
+    - **Visited State**: Visual highlighting (purple background) for opened files.
+    - **Tabbed Logging**: Phase 2 results are separated into tabs (Log A, B, C) for cleaner review.
