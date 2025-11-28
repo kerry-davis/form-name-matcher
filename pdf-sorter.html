@@ -1458,22 +1458,10 @@
                                     const { width, height } = lastPage.getSize();
                                     
                                     repairWidgetCoords.forEach(coord => {
-                                        // Masking (Small white rectangle to hide underlying image)
-                                        // Using the coordinate logic: X, Y are from bottom-left
-                                        lastPage.drawRectangle({
-                                            x: coord.x,
-                                            y: coord.y,
-                                            width: coord.w,
-                                            height: coord.h,
-                                            color: PDFLib.rgb(1, 1, 1), // White
-                                            borderColor: PDFLib.rgb(1, 1, 1),
-                                            borderWidth: 0,
-                                        });
+                                        // Removed Masking: We want the original underlying 3D-style box to show through.
+                                        // We will place an invisible, clickable widget on top of it.
                                         
                                         // Create Checkbox
-                                        // Name must be unique? "adr", "brg". If they exist (but are locked), we might conflict.
-                                        // If the file thinks it has fields but they are flattened/read-only, createCheckBox might fail or duplicate.
-                                        // Safer: unique name or try to get existing.
                                         // Ideally we want standard names. "adr", "brg".
                                         
                                         try {
@@ -1484,9 +1472,9 @@
                                                 width: coord.w,
                                                 height: coord.h,
                                                 textColor: PDFLib.rgb(0, 0, 0),
-                                                backgroundColor: PDFLib.rgb(1, 1, 1),
-                                                borderColor: PDFLib.rgb(0, 0, 0),
-                                                borderWidth: 1,
+                                                // No backgroundColor -> Transparent
+                                                // No borderColor -> Transparent/Invisible border
+                                                borderWidth: 0,
                                             });
                                         } catch (err) {
                                             // Field might already exist? If so, try to revive it?
