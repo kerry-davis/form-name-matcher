@@ -490,7 +490,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-a" style="border:none; margin:0;">Folder A<br><small>(Non-Editable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="copyModeA" disabled> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeA" checked disabled> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvA" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -512,7 +512,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-b" style="border:none; margin:0;">Folder B<br><small>(Office Use: tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="copyModeB" disabled> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeB" checked disabled> Copy Only</label>
                     </div>
                     <div>
                         <label class="button btn-secondary" id="lblCsvB" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
@@ -562,7 +562,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-c" style="border:none; margin:0;">Folder C<br><small>(Office Use: not tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="copyModeC" disabled> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeC" checked disabled> Copy Only</label>
                         <!-- Repair Template Toggle -->
                         <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;">
                             <label class="copy-option" title="Injects editable checkboxes from a template file">
@@ -1270,6 +1270,54 @@
             });
         });
 
+        // Update Execute Button Label based on modes
+        function updateExecuteButtonLabel() {
+            const copyA = document.getElementById('copyModeA').checked;
+            const copyB = document.getElementById('copyModeB').checked;
+            const copyC = document.getElementById('copyModeC').checked;
+            
+            // Count active categories?
+            // Actually, we should only consider the categories that have CSVs loaded.
+            // But the checkboxes are always there.
+            // Let's assume the intent is based on the checked state of ALL enabled boxes.
+            // But wait, if I don't upload CSV A, copyModeA is irrelevant.
+            // So we should filter by 'active' rows.
+            
+            const hasCsvA = !!csvDataStore.A;
+            const hasCsvB = !!csvDataStore.B;
+            const hasCsvC = !!csvDataStore.C;
+            
+            let totalOps = 0;
+            let moveOps = 0;
+            let copyOps = 0;
+            
+            if (hasCsvA) { totalOps++; if (!copyA) moveOps++; else copyOps++; }
+            if (hasCsvB) { totalOps++; if (!copyB) moveOps++; else copyOps++; }
+            if (hasCsvC) { totalOps++; if (!copyC) moveOps++; else copyOps++; }
+            
+            const btn = document.getElementById('executeMoveBtn');
+            
+            if (totalOps === 0) {
+                btn.textContent = "Execute Move"; // Default
+                return;
+            }
+            
+            if (moveOps > 0 && copyOps === 0) {
+                btn.textContent = "Execute Move";
+                btn.className = "button btn-danger"; // Warning color for Move
+            } else if (copyOps > 0 && moveOps === 0) {
+                btn.textContent = "Execute Copy";
+                btn.className = "button btn-primary"; // Safe color for Copy
+            } else {
+                btn.textContent = "Execute Copy/Move";
+                btn.className = "button btn-warning"; // Mixed
+            }
+        }
+
+        ['A', 'B', 'C'].forEach(c => {
+            document.getElementById(`copyMode${c}`).addEventListener('change', updateExecuteButtonLabel);
+        });
+
         function checkMoveReady() {
             if (!sourceDirHandle2) {
                 document.getElementById('executeMoveBtn').disabled = true;
@@ -1291,6 +1339,9 @@
             const readyC = csvDataStore.C && destHandles.C;
 
             document.getElementById('executeMoveBtn').disabled = !(readyA || readyB || readyC);
+            
+            // Update Label
+            updateExecuteButtonLabel();
         }
 
         function parseCsv(text) {
@@ -1329,6 +1380,24 @@
             const generateSummary = document.getElementById('generateSummaryCheckbox').checked;
             const stopBtn = document.getElementById('stopMoveBtn');
             const execBtn = document.getElementById('executeMoveBtn');
+            
+            // Warning Check for Move
+            const copyA = document.getElementById('copyModeA').checked;
+            const copyB = document.getElementById('copyModeB').checked;
+            const copyC = document.getElementById('copyModeC').checked;
+            const hasCsvA = !!csvDataStore.A;
+            const hasCsvB = !!csvDataStore.B;
+            const hasCsvC = !!csvDataStore.C;
+            
+            let moving = false;
+            if (hasCsvA && !copyA) moving = true;
+            if (hasCsvB && !copyB) moving = true;
+            if (hasCsvC && !copyC) moving = true;
+            
+            if (moving) {
+                const ok = confirm("Warning: You are about to MOVE files.\n\nThis will PERMANENTLY DELETE the original files from the source folder.\n\nAre you sure you want to continue?");
+                if (!ok) return;
+            }
             
             loading.style.display = 'block';
             resultsArea.style.display = 'block';
