@@ -1473,7 +1473,8 @@
                                                 height: coord.h,
                                                 textColor: PDFLib.rgb(0, 0, 0),
                                                 // No backgroundColor -> Transparent
-                                                // No borderColor -> Transparent/Invisible border
+                                                // Set border to White to mask potential black defaults, and Width to 0
+                                                borderColor: PDFLib.rgb(1, 1, 1),
                                                 borderWidth: 0,
                                             });
                                         } catch (err) {
