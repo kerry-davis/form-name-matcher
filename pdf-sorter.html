@@ -1473,9 +1473,10 @@
                                                 height: coord.h,
                                                 textColor: PDFLib.rgb(0, 0, 0),
                                                 // No backgroundColor -> Transparent
-                                                // Set border to White to mask potential black defaults, and Width to 0
+                                                // Set border to White (matches page) and Width to 1 (Standard)
+                                                // This ensures clickable area is valid while masking the "black default"
                                                 borderColor: PDFLib.rgb(1, 1, 1),
-                                                borderWidth: 0,
+                                                borderWidth: 1,
                                             });
                                         } catch (err) {
                                             // Field might already exist? If so, try to revive it?
