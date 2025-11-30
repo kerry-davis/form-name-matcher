@@ -675,7 +675,8 @@
         
         // Repair Template State
         let repairTemplateBytes = null;
-        let repairWidgetCoords = null; // [{x,y,w,h,name}, ...]
+        let repairTemplatePdf = null; // PDFDocument instance for appearance copying
+        let repairWidgetCoords = null; // [{x,y,w,h,name,appearanceDict,mkDict,bsDict}, ...]
 
         let isProcessing = false; // Global stop flag
 
@@ -1408,14 +1409,12 @@
                 const buffer = await file.arrayBuffer();
                 repairTemplateBytes = buffer;
                 
-                // Scan for coords immediately
-                const pdfDoc = await PDFLib.PDFDocument.load(buffer);
-                const pageCount = pdfDoc.getPageCount();
-                const lastPage = pdfDoc.getPage(pageCount - 1);
+                // Keep PDFDocument instance in memory for appearance copying
+                repairTemplatePdf = await PDFLib.PDFDocument.load(buffer);
                 
-                // Extract Checkbox Widgets from last page
-                // Re-using logic similar to finding them for scanned files, but using PDF-Lib
-                const form = pdfDoc.getForm();
+                const pageCount = repairTemplatePdf.getPageCount();
+                const lastPage = repairTemplatePdf.getPage(pageCount - 1);
+                const form = repairTemplatePdf.getForm();
                 const fields = form.getFields();
                 const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
                 
@@ -1457,6 +1456,7 @@
                      document.getElementById('templateDisplayC').style.color = 'var(--button-primary)';
                 } else {
                      repairTemplateBytes = null;
+                     repairTemplatePdf = null;
                      repairWidgetCoords = null;
                      document.getElementById('templateDisplayC').textContent = `Error: Found only ${candidates.length} checkboxes (Need 6)`;
                      document.getElementById('templateDisplayC').style.color = 'var(--button-danger)';
@@ -1864,25 +1864,17 @@
                             
                             // === AUTOMATED REPAIR FOR CATEGORY C ===
                             const repairMode = document.getElementById('repairModeC').checked;
-                            if (cat === 'C' && repairMode && repairWidgetCoords) {
+                            if (cat === 'C' && repairMode && repairWidgetCoords && repairTemplatePdf) {
                                 try {
-                                    // Load with pdf-lib if not already loaded
-                                    // Note: The 'B' block above loads it locally. We need to load it here if it wasn't loaded.
-                                    // Actually, 'fileArrayBuffer' is the source.
+                                    // Load target PDF
                                     const pdfDoc = await PDFLib.PDFDocument.load(fileArrayBuffer);
                                     const pageCount = pdfDoc.getPageCount();
                                     const lastPage = pdfDoc.getPage(pageCount - 1);
                                     const form = pdfDoc.getForm();
                                     
-                                    // 1. Draw White Masks over old boxes
-                                    // 2. Create New Checkboxes
-                                    
                                     const { width, height } = lastPage.getSize();
                                     
                                     repairWidgetCoords.forEach(coord => {
-                                        // Removed Masking: We want the original underlying 3D-style box to show through.
-                                        // We will place an invisible, clickable widget on top of it.
-                                        
                                         // Create Checkbox with appearance streams copied from template (true 1:1 copy)
                                         try {
                                             const newBox = form.createCheckBox(coord.name);
@@ -1895,24 +1887,27 @@
                                                 height: coord.h,
                                             });
                                             
-                                            // Copy appearance streams from template for true 1:1 visual match
+                                            // Copy appearance streams from template using cross-document copy
                                             const newWidgets = newBox.acroField.getWidgets();
                                             if (newWidgets.length > 0) {
                                                 const newWidgetDict = newWidgets[0].dict;
                                                 
                                                 // Copy AP (Appearance) dictionary - contains actual graphics
                                                 if (coord.appearanceDict) {
-                                                    newWidgetDict.set(PDFLib.PDFName.of('AP'), coord.appearanceDict);
+                                                    const copiedAP = pdfDoc.context.copy(repairTemplatePdf.context, coord.appearanceDict);
+                                                    newWidgetDict.set(PDFLib.PDFName.of('AP'), copiedAP);
                                                 }
                                                 
                                                 // Copy MK (Appearance Characteristics) - border/background colors
                                                 if (coord.mkDict) {
-                                                    newWidgetDict.set(PDFLib.PDFName.of('MK'), coord.mkDict);
+                                                    const copiedMK = pdfDoc.context.copy(repairTemplatePdf.context, coord.mkDict);
+                                                    newWidgetDict.set(PDFLib.PDFName.of('MK'), copiedMK);
                                                 }
                                                 
                                                 // Copy BS (Border Style) - border width/style
                                                 if (coord.bsDict) {
-                                                    newWidgetDict.set(PDFLib.PDFName.of('BS'), coord.bsDict);
+                                                    const copiedBS = pdfDoc.context.copy(repairTemplatePdf.context, coord.bsDict);
+                                                    newWidgetDict.set(PDFLib.PDFName.of('BS'), copiedBS);
                                                 }
                                             }
                                         } catch (err) {
