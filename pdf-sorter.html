@@ -1414,20 +1414,60 @@
                 const fields = form.getFields();
                 const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
                 
+                // Helper functions to extract visual properties from widget
+                function extractBorderColor(widget) {
+                    try {
+                        const mk = widget.dict.get(PDFLib.PDFName.of('MK'));
+                        if (mk) {
+                            const bc = mk.get(PDFLib.PDFName.of('BC'));
+                            if (bc && bc.asArray) {
+                                return bc.asArray().map(c => c.asNumber ? c.asNumber() : c);
+                            }
+                        }
+                    } catch (e) {}
+                    return [0, 0, 0]; // Default black
+                }
+                
+                function extractBorderWidth(widget) {
+                    try {
+                        const bs = widget.dict.get(PDFLib.PDFName.of('BS'));
+                        if (bs) {
+                            const w = bs.get(PDFLib.PDFName.of('W'));
+                            return w ? (w.asNumber ? w.asNumber() : w) : 1;
+                        }
+                    } catch (e) {}
+                    return 1;
+                }
+                
+                function extractBackgroundColor(widget) {
+                    try {
+                        const mk = widget.dict.get(PDFLib.PDFName.of('MK'));
+                        if (mk) {
+                            const bg = mk.get(PDFLib.PDFName.of('BG'));
+                            if (bg && bg.asArray) {
+                                return bg.asArray().map(c => c.asNumber ? c.asNumber() : c);
+                            }
+                        }
+                    } catch (e) {}
+                    return null; // Transparent
+                }
+                
                 const candidates = [];
                 
                 for (const box of checkboxes) {
                     const widgets = box.acroField.getWidgets();
                     for (const w of widgets) {
                         const rect = w.getRectangle();
-                        // Basic check: is it reasonably on the page?
-                        // We need Y coord relative to something? No, absolute is fine if pages match.
+                        // Extract all visual properties for 1:1 copy
                         candidates.push({
                              name: box.getName(),
                              x: rect.x,
                              y: rect.y,
                              w: rect.width,
-                             h: rect.height
+                             h: rect.height,
+                             borderColor: extractBorderColor(w),
+                             borderWidth: extractBorderWidth(w),
+                             backgroundColor: extractBackgroundColor(w)
                         });
                     }
                 }
@@ -1873,23 +1913,41 @@
                                         // Removed Masking: We want the original underlying 3D-style box to show through.
                                         // We will place an invisible, clickable widget on top of it.
                                         
-                                        // Create Checkbox
-                                        // Ideally we want standard names. "adr", "brg".
-                                        
+                                        // Create Checkbox with properties copied from template (1:1 copy)
                                         try {
                                             const newBox = form.createCheckBox(coord.name);
-                                            newBox.addToPage(lastPage, {
+                                            
+                                            // Build options with template properties
+                                            const checkboxOptions = {
                                                 x: coord.x,
                                                 y: coord.y,
                                                 width: coord.w,
                                                 height: coord.h,
                                                 textColor: PDFLib.rgb(0, 0, 0),
-                                                // No backgroundColor -> Transparent
-                                                // Set border to White (matches page) and Width to 1 (Standard)
-                                                // This ensures clickable area is valid while masking the "black default"
-                                                borderColor: PDFLib.rgb(1, 1, 1),
-                                                borderWidth: 1,
-                                            });
+                                                borderWidth: coord.borderWidth || 1,
+                                            };
+                                            
+                                            // Apply border color from template
+                                            if (coord.borderColor && coord.borderColor.length >= 3) {
+                                                checkboxOptions.borderColor = PDFLib.rgb(
+                                                    coord.borderColor[0],
+                                                    coord.borderColor[1],
+                                                    coord.borderColor[2]
+                                                );
+                                            } else {
+                                                checkboxOptions.borderColor = PDFLib.rgb(0, 0, 0);
+                                            }
+                                            
+                                            // Apply background color from template (if exists)
+                                            if (coord.backgroundColor && coord.backgroundColor.length >= 3) {
+                                                checkboxOptions.backgroundColor = PDFLib.rgb(
+                                                    coord.backgroundColor[0],
+                                                    coord.backgroundColor[1],
+                                                    coord.backgroundColor[2]
+                                                );
+                                            }
+                                            
+                                            newBox.addToPage(lastPage, checkboxOptions);
                                         } catch (err) {
                                             // Field might already exist? If so, try to revive it?
                                             // If it exists but is broken, maybe we can't easily replace it with the same name.
