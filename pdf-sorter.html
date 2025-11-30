@@ -318,7 +318,7 @@
             </div>
             <div id="destRootPathDisplay" class="status-box">No destination folder selected</div>
             <div id="destSubfoldersInfo" class="status-box" style="display:none; font-size: 0.85em; color: var(--text-secondary);">
-                Will create: <strong>Category A/</strong>, <strong>Category B/</strong>, <strong>Category C/</strong>, <strong>Companions/</strong>
+                Will create: <strong>Non-Editable/</strong>, <strong>Office Use Tickable/</strong>, <strong>Office Use Not Tickable/</strong>, <strong>Companions/</strong> (if needed)
             </div>
 
             <style>
@@ -1635,7 +1635,7 @@
 
             try {
                 // Create category subfolders under destRootHandle
-                const categoryFolderNames = { A: 'Category A', B: 'Category B', C: 'Category C' };
+                const categoryFolderNames = { A: 'Non-Editable', B: 'Office Use Tickable', C: 'Office Use Not Tickable' };
                 const categoryFolders = {};
                 
                 for (const cat of ['A', 'B', 'C']) {
@@ -1644,9 +1644,8 @@
                     }
                 }
                 
-                // Create Companions subfolder
-                const companionsFolder = destRootHandle ? await destRootHandle.getDirectoryHandle('Companions', { create: true }) : null;
-                companionDestHandle = companionsFolder;
+                // Companions folder will be created lazily when first companion is found
+                companionDestHandle = null;
                 
                 // Iterate over categories A, B, C
                 for (const cat of ['A', 'B', 'C']) {
@@ -1956,7 +1955,7 @@
                             // === COMPANION FILE PROCESSING ===
                             // Process companion files if: companion folder selected AND folder not yet processed
                             const folderPath = pathParts.slice(0, -1).join('/'); // Get folder path without filename
-                            if (companionDestHandle && folderPath && !processedCompanionFolders.has(folderPath)) {
+                            if (destRootHandle && folderPath && !processedCompanionFolders.has(folderPath)) {
                                 processedCompanionFolders.add(folderPath);
                                 
                                 try {
@@ -1971,6 +1970,11 @@
                                     }
                                     
                                     if (companionFiles.length > 0) {
+                                        // Lazily create Companions folder on first companion found
+                                        if (!companionDestHandle) {
+                                            companionDestHandle = await destRootHandle.getDirectoryHandle('Companions', { create: true });
+                                        }
+                                        
                                         // Create destination subfolder
                                         const folderName = pathParts.length > 1 ? pathParts[pathParts.length - 2] : pathParts[0];
                                         const companionSubFolder = await companionDestHandle.getDirectoryHandle(folderName, { create: true });
