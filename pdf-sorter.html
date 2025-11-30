@@ -719,42 +719,6 @@
             localStorage.removeItem('pdfSorterSession');
         }
         
-        // Check for saved session on load
-        (function checkSavedSession() {
-            const session = loadSessionFromStorage();
-            if (session && session.files && session.files.length > 0) {
-                const restore = confirm(
-                    `Found previous analysis session:\n` +
-                    `- ${session.files.length} files analyzed\n` +
-                    `- Source: ${session.sourceFolderName || 'Unknown'}\n` +
-                    `- Saved: ${new Date(session.timestamp).toLocaleString()}\n\n` +
-                    `Restore this session?\n\n` +
-                    `(You will need to re-select the source folder)`
-                );
-                
-                if (restore) {
-                    // Restore allFiles (without handles)
-                    allFiles = session.files.map(f => ({
-                        name: f.name,
-                        relativePath: f.relativePath,
-                        category: f.category,
-                        reason: f.reason,
-                        handle: null,
-                        parentHandle: null
-                    }));
-                    
-                    // Display results
-                    displayResults();
-                    
-                    // Show message to re-select folder
-                    document.getElementById('sourcePathDisplay').textContent = 
-                        `Previous: ${session.sourceFolderName} (re-select to proceed)`;
-                } else {
-                    clearSession();
-                }
-            }
-        })();
-
         // --- UI Toggles ---
         const darkModeToggle = document.getElementById('darkModeToggle');
         darkModeToggle.addEventListener('click', () => {
@@ -2151,6 +2115,42 @@
             const row = document.getElementById(rowId);
             row.classList.toggle('collapsed');
         };
+
+        // Check for saved session on load (must run after all functions are defined)
+        (function checkSavedSession() {
+            const session = loadSessionFromStorage();
+            if (session && session.files && session.files.length > 0) {
+                const restore = confirm(
+                    `Found previous analysis session:\n` +
+                    `- ${session.files.length} files analyzed\n` +
+                    `- Source: ${session.sourceFolderName || 'Unknown'}\n` +
+                    `- Saved: ${new Date(session.timestamp).toLocaleString()}\n\n` +
+                    `Restore this session?\n\n` +
+                    `(You will need to re-select the source folder)`
+                );
+                
+                if (restore) {
+                    // Restore allFiles (without handles)
+                    allFiles = session.files.map(f => ({
+                        name: f.name,
+                        relativePath: f.relativePath,
+                        category: f.category,
+                        reason: f.reason,
+                        handle: null,
+                        parentHandle: null
+                    }));
+                    
+                    // Display results
+                    displayResults();
+                    
+                    // Show message to re-select folder
+                    document.getElementById('sourcePathDisplay').textContent = 
+                        `Previous: ${session.sourceFolderName} (re-select to proceed)`;
+                } else {
+                    clearSession();
+                }
+            }
+        })();
     </script>
 </body>
 </html>
