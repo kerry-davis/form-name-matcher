@@ -763,6 +763,39 @@
                 setPhase2ControlsState(true);
                 checkMoveReady();
             }
+            
+            // Auto-populate csvDataStore from allFiles if available
+            if (allFiles.length > 0 && !csvDataStore.A && !csvDataStore.B && !csvDataStore.C) {
+                const groups = { A: [], B: [], C: [] };
+                allFiles.forEach(f => {
+                    const lastSlashIndex = f.relativePath.lastIndexOf('/');
+                    let dirPath = lastSlashIndex > -1 ? f.relativePath.substring(0, lastSlashIndex) : '';
+                    if (sourceDirHandle) {
+                        dirPath = dirPath ? `${sourceDirHandle.name}/${dirPath}` : sourceDirHandle.name;
+                    }
+                    groups[f.category].push({
+                        path: dirPath,
+                        name: f.name,
+                        category: f.category,
+                        reason: f.reason
+                    });
+                });
+                csvDataStore.A = groups.A.length > 0 ? groups.A : null;
+                csvDataStore.B = groups.B.length > 0 ? groups.B : null;
+                csvDataStore.C = groups.C.length > 0 ? groups.C : null;
+                
+                // Update CSV displays
+                ['A', 'B', 'C'].forEach(cat => {
+                    const data = csvDataStore[cat];
+                    const display = document.getElementById(`csvDisplay${cat}`);
+                    if (data) {
+                        display.textContent = `From Analysis (${data.length} files)`;
+                        display.style.color = 'var(--button-primary)';
+                    }
+                });
+                
+                checkMoveReady();
+            }
         });
 
         // --- Phase 1: Analysis Logic ---
