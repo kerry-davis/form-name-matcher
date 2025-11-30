@@ -287,6 +287,12 @@
                     <button id="downloadCsvBtnB" class="button btn-primary" style="display:none;">Download Category B CSV</button>
                     <button id="downloadCsvBtnC" class="button btn-warning" style="display:none;">Download Category C CSV</button>
                 </div>
+                
+                <div class="button-container" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                    <button id="proceedToMoveBtn" class="button btn-primary" style="display:none; font-size: 1rem; padding: 12px 24px;">
+                        Proceed to Move →
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -301,21 +307,24 @@
             </div>
             <div id="sourcePathDisplay2" class="status-box">No source folder selected</div>
 
-            <!-- Companion Folder Picker -->
+            <!-- Single Destination Folder Picker -->
             <div class="button-container" style="margin-top: 15px;">
-                <button id="selectCompanionBtn" class="button btn-secondary" disabled>2. Select Companion Folder</button>
+                <button id="selectDestRootBtn" class="button btn-primary" disabled>2. Select Destination Folder</button>
                 <select id="companionConflictSelect" class="button" style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color);" disabled>
-                    <option value="ask">If exists: Ask</option>
-                    <option value="overwrite">If exists: Overwrite</option>
-                    <option value="skip">If exists: Skip</option>
+                    <option value="ask">If companion exists: Ask</option>
+                    <option value="overwrite">If companion exists: Overwrite</option>
+                    <option value="skip">If companion exists: Skip</option>
                 </select>
             </div>
-            <div id="companionPathDisplay" class="status-box">No companion folder selected (optional)</div>
+            <div id="destRootPathDisplay" class="status-box">No destination folder selected</div>
+            <div id="destSubfoldersInfo" class="status-box" style="display:none; font-size: 0.85em; color: var(--text-secondary);">
+                Will create: <strong>Category A/</strong>, <strong>Category B/</strong>, <strong>Category C/</strong>, <strong>Companions/</strong>
+            </div>
 
             <style>
                 .move-row {
                     display: grid;
-                    grid-template-columns: 1fr 1fr 1fr; /* Equal columns = Identical Buttons */
+                    grid-template-columns: 1fr 1fr; /* Two columns: Category info + CSV */
                     gap: 20px;
                     align-items: start; 
                     background: rgba(255,255,255,0.05);
@@ -323,6 +332,10 @@
                     border: 1px solid var(--border-color);
                     border-radius: 8px;
                     margin-bottom: 15px;
+                }
+                /* Hide old destination column */
+                .move-row > div:nth-child(3) {
+                    display: none;
                 }
                 
                 /* Style for the separated tick container to merge with Row B */
@@ -650,12 +663,13 @@
         
         // Phase 2 State
         let csvDataStore = { A: null, B: null, C: null };
-        let destHandles = { A: null, B: null, C: null };
+        let destHandles = { A: null, B: null, C: null }; // Auto-populated from destRootHandle
+        let destRootHandle = null; // Single destination root
         let logCounts = { A: 0, B: 0, C: 0, Companion: 0 }; // Track move counts
         let sourceDirHandle2 = null;
         
         // Companion Files State
-        let companionDestHandle = null;
+        let companionDestHandle = null; // Auto-populated from destRootHandle
         let companionConflictMode = 'ask'; // 'overwrite' | 'skip' | 'ask'
         let processedCompanionFolders = new Set(); // Track folders already processed for companions
         
@@ -664,6 +678,82 @@
         let repairWidgetCoords = null; // [{x,y,w,h,name}, ...]
 
         let isProcessing = false; // Global stop flag
+
+        // --- Session Persistence ---
+        function saveSessionToStorage() {
+            if (allFiles.length === 0) return;
+            
+            // Save analysis results (without file handles - those can't be serialized)
+            const sessionData = {
+                files: allFiles.map(f => ({
+                    name: f.name,
+                    relativePath: f.relativePath,
+                    category: f.category,
+                    reason: f.reason
+                })),
+                sourceFolderName: sourceDirHandle ? sourceDirHandle.name : null,
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem('pdfSorterSession', JSON.stringify(sessionData));
+        }
+        
+        function loadSessionFromStorage() {
+            const saved = localStorage.getItem('pdfSorterSession');
+            if (!saved) return null;
+            
+            try {
+                const sessionData = JSON.parse(saved);
+                // Check if session is less than 24 hours old
+                if (Date.now() - sessionData.timestamp > 24 * 60 * 60 * 1000) {
+                    localStorage.removeItem('pdfSorterSession');
+                    return null;
+                }
+                return sessionData;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        function clearSession() {
+            localStorage.removeItem('pdfSorterSession');
+        }
+        
+        // Check for saved session on load
+        (function checkSavedSession() {
+            const session = loadSessionFromStorage();
+            if (session && session.files && session.files.length > 0) {
+                const restore = confirm(
+                    `Found previous analysis session:\n` +
+                    `- ${session.files.length} files analyzed\n` +
+                    `- Source: ${session.sourceFolderName || 'Unknown'}\n` +
+                    `- Saved: ${new Date(session.timestamp).toLocaleString()}\n\n` +
+                    `Restore this session?\n\n` +
+                    `(You will need to re-select the source folder)`
+                );
+                
+                if (restore) {
+                    // Restore allFiles (without handles)
+                    allFiles = session.files.map(f => ({
+                        name: f.name,
+                        relativePath: f.relativePath,
+                        category: f.category,
+                        reason: f.reason,
+                        handle: null,
+                        parentHandle: null
+                    }));
+                    
+                    // Display results
+                    displayResults();
+                    
+                    // Show message to re-select folder
+                    document.getElementById('sourcePathDisplay').textContent = 
+                        `Previous: ${session.sourceFolderName} (re-select to proceed)`;
+                } else {
+                    clearSession();
+                }
+            }
+        })();
 
         // --- UI Toggles ---
         const darkModeToggle = document.getElementById('darkModeToggle');
@@ -687,6 +777,28 @@
             document.getElementById('phase2-container').style.display = 'block';
             document.getElementById('btnPhase1').classList.remove('active');
             document.getElementById('btnPhase2').classList.add('active');
+            
+            // Auto-inherit source folder from Phase 1
+            if (sourceDirHandle && !sourceDirHandle2) {
+                sourceDirHandle2 = sourceDirHandle;
+                document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name} (from Phase 1)`;
+                
+                // Enable CSV Inputs
+                ['A', 'B', 'C'].forEach(cat => {
+                    const lbl = document.getElementById(`lblCsv${cat}`);
+                    const inp = document.getElementById(`csvInput${cat}`);
+                    if(lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
+                    if(inp) { inp.disabled = false; }
+                });
+                
+                // Enable Destination Folder picker
+                document.getElementById('selectDestRootBtn').disabled = false;
+                document.getElementById('companionConflictSelect').disabled = false;
+                
+                // Enable Controls
+                setPhase2ControlsState(true);
+                checkMoveReady();
+            }
         });
 
         // --- Phase 1: Analysis Logic ---
@@ -777,6 +889,9 @@
                 
                 const endTime = performance.now();
                 displayProcessingTime(startTime, endTime);
+                
+                // Save session to localStorage
+                saveSessionToStorage();
 
             } catch (error) {
                 alert("Error during analysis: " + error.message);
@@ -1015,6 +1130,11 @@
             // Fix: Initialize view state to match the default active tab (A)
             // This ensures the correct Download button is visible immediately.
             showTab('A');
+            
+            // Show "Proceed to Move" button if there are files to process
+            if (allFiles.length > 0) {
+                document.getElementById('proceedToMoveBtn').style.display = 'inline-block';
+            }
         }
 
         function renderList(id, files) {
@@ -1104,12 +1224,79 @@
         document.getElementById('downloadCsvBtnB').addEventListener('click', () => downloadCsvForCategory('B'));
         document.getElementById('downloadCsvBtnC').addEventListener('click', () => downloadCsvForCategory('C'));
 
+        // Proceed to Move - Direct Phase 1 → Phase 2 Flow
+        document.getElementById('proceedToMoveBtn').addEventListener('click', () => {
+            if (allFiles.length === 0) return;
+            
+            // Group files by category and convert to CSV format
+            const groups = { A: [], B: [], C: [] };
+            allFiles.forEach(f => {
+                // Convert to CSV row format matching parseCsv output
+                const lastSlashIndex = f.relativePath.lastIndexOf('/');
+                let dirPath = lastSlashIndex > -1 ? f.relativePath.substring(0, lastSlashIndex) : '';
+                if (sourceDirHandle) {
+                    dirPath = dirPath ? `${sourceDirHandle.name}/${dirPath}` : sourceDirHandle.name;
+                }
+                
+                groups[f.category].push({
+                    path: dirPath,
+                    name: f.name,
+                    category: f.category,
+                    reason: f.reason
+                });
+            });
+            
+            // Populate csvDataStore
+            csvDataStore.A = groups.A.length > 0 ? groups.A : null;
+            csvDataStore.B = groups.B.length > 0 ? groups.B : null;
+            csvDataStore.C = groups.C.length > 0 ? groups.C : null;
+            
+            // Copy source folder to Phase 2
+            sourceDirHandle2 = sourceDirHandle;
+            
+            // Switch to Phase 2
+            document.getElementById('phase1-container').style.display = 'none';
+            document.getElementById('phase2-container').style.display = 'block';
+            document.getElementById('btnPhase1').classList.remove('active');
+            document.getElementById('btnPhase2').classList.add('active');
+            
+            // Update Phase 2 UI
+            document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name} (from Phase 1)`;
+            
+            // Update CSV displays to show loaded counts
+            ['A', 'B', 'C'].forEach(cat => {
+                const data = csvDataStore[cat];
+                const display = document.getElementById(`csvDisplay${cat}`);
+                const lbl = document.getElementById(`lblCsv${cat}`);
+                const inp = document.getElementById(`csvInput${cat}`);
+                
+                if (data) {
+                    display.textContent = `From Analysis (${data.length} files)`;
+                    display.style.color = 'var(--button-primary)';
+                } else {
+                    display.textContent = 'No files in this category';
+                }
+                
+                // Enable CSV inputs for override
+                if(lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
+                if(inp) { inp.disabled = false; }
+            });
+            
+            // Enable controls
+            document.getElementById('selectDestRootBtn').disabled = false;
+            document.getElementById('companionConflictSelect').disabled = false;
+            setPhase2ControlsState(true);
+            checkMoveReady();
+        });
+
         document.getElementById('resetBtn1').addEventListener('click', () => {
             allFiles = [];
             resetLists();
             document.getElementById('sourcePathDisplay').textContent = 'No folder selected';
+            document.getElementById('proceedToMoveBtn').style.display = 'none';
             sourceDirHandle = null;
             document.getElementById('analyseBtn').disabled = true;
+            clearSession(); // Clear saved session
         });
 
 
@@ -1154,8 +1341,8 @@
                     if(inp) { inp.disabled = false; }
                 });
                 
-                // Enable Companion Folder controls
-                document.getElementById('selectCompanionBtn').disabled = false;
+                // Enable Destination Folder picker
+                document.getElementById('selectDestRootBtn').disabled = false;
                 document.getElementById('companionConflictSelect').disabled = false;
                 
                 // Enable Controls
@@ -1165,11 +1352,21 @@
             } catch (err) { console.error(err); }
         });
         
-        // Companion Folder Picker
-        document.getElementById('selectCompanionBtn').addEventListener('click', async () => {
+        // Single Destination Folder Picker
+        document.getElementById('selectDestRootBtn').addEventListener('click', async () => {
             try {
-                companionDestHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-                document.getElementById('companionPathDisplay').textContent = `Selected: ${companionDestHandle.name}`;
+                destRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                document.getElementById('destRootPathDisplay').textContent = `Selected: ${destRootHandle.name}`;
+                document.getElementById('destSubfoldersInfo').style.display = 'block';
+                
+                // Auto-create subfolder handles (will be created on execute)
+                // For now, just set destHandles and companionDestHandle to indicate destination is ready
+                destHandles.A = destRootHandle;
+                destHandles.B = destRootHandle;
+                destHandles.C = destRootHandle;
+                companionDestHandle = destRootHandle;
+                
+                checkMoveReady();
             } catch (err) { console.error(err); }
         });
         
@@ -1356,24 +1553,14 @@
         function checkMoveReady() {
             if (!sourceDirHandle2) {
                 document.getElementById('executeMoveBtn').disabled = true;
-                // Ensure buttons stay disabled if source not selected
-                ['A', 'B', 'C'].forEach(c => {
-                    document.getElementById(`btnDest${c}`).disabled = true;
-                });
                 return;
             }
-            // Enable destination buttons if source is ready AND CSV is loaded for that row
-            ['A', 'B', 'C'].forEach(c => {
-                const hasCsv = !!csvDataStore[c];
-                document.getElementById(`btnDest${c}`).disabled = !hasCsv; 
-            });
+            
+            // Check if destination is selected AND at least one category has files
+            const hasAnyFiles = csvDataStore.A || csvDataStore.B || csvDataStore.C;
+            const hasDestination = !!destRootHandle;
 
-            // Check if at least ONE row is fully ready (CSV + Folder)
-            const readyA = csvDataStore.A && destHandles.A;
-            const readyB = csvDataStore.B && destHandles.B;
-            const readyC = csvDataStore.C && destHandles.C;
-
-            document.getElementById('executeMoveBtn').disabled = !(readyA || readyB || readyC);
+            document.getElementById('executeMoveBtn').disabled = !(hasAnyFiles && hasDestination);
             
             // Update Label
             updateExecuteButtonLabel();
@@ -1450,12 +1637,26 @@
             const summaryData = []; // Store for CSV export
 
             try {
+                // Create category subfolders under destRootHandle
+                const categoryFolderNames = { A: 'Category A', B: 'Category B', C: 'Category C' };
+                const categoryFolders = {};
+                
+                for (const cat of ['A', 'B', 'C']) {
+                    if (csvDataStore[cat] && destRootHandle) {
+                        categoryFolders[cat] = await destRootHandle.getDirectoryHandle(categoryFolderNames[cat], { create: true });
+                    }
+                }
+                
+                // Create Companions subfolder
+                const companionsFolder = destRootHandle ? await destRootHandle.getDirectoryHandle('Companions', { create: true }) : null;
+                companionDestHandle = companionsFolder;
+                
                 // Iterate over categories A, B, C
                 for (const cat of ['A', 'B', 'C']) {
                     if (!isProcessing) break; // Stop check outer loop
                     
                     const data = csvDataStore[cat];
-                    const targetFolder = destHandles[cat];
+                    const targetFolder = categoryFolders[cat];
                     const isCopyOnly = document.getElementById(`copyMode${cat}`).checked;
 
                     // Skip if not configured (CSV missing or Folder missing)
