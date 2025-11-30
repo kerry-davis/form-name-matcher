@@ -70,9 +70,13 @@ Notes:
     - **Input**: User provides a "Template PDF" (Category B) containing correct widgets.
     - **Analysis**: System extracts widget coordinates (X, Y, W, H) from the template.
     - **Execution**: Draws a white mask over the target file's old boxes and injects new interactive checkboxes at the template coordinates.
-- **Folder Retention**: 
-    - **Category A**: Retains the original source subdirectory structure (e.g., `Source/Sub/File.pdf` -> `Dest/Sub/File.pdf`).
-    - **Category B & C**: Flattens files into the destination root (e.g., `Source/Sub/File.pdf` -> `Dest/File.pdf`).
+- **Folder Structure**: 
+    - **All Categories (A, B, C)**: KA-prefixed PDFs are flattened to the destination root (e.g., `Source/Sub/KA123.pdf` -> `Dest/KA123.pdf`).
+- **Companion Files**: Non-KA files in the same source folder as processed KA files.
+    - **Optional**: User can select a "Companion Folder" destination.
+    - **Structure**: Companions retain their subfolder structure (e.g., `Source/Sub/accounts.pdf` -> `Companion-Folder/Sub/accounts.pdf`).
+    - **Conflict Handling**: User selects behavior when companion file already exists: Overwrite, Skip, or Ask.
+    - **Copy/Move**: Companions follow the same copy/move mode as their associated KA file's category.
 
 ## 2) CSV I/O Data Models
 
@@ -96,9 +100,9 @@ Filename: `move-summary-{timestamp}.csv`
 | :--- | :--- | :--- |
 | `FileName` | String | Name of the processed file. |
 | `OriginalPath` | String | Source directory path. |
-| `Category` | Enum | `A`, `B`, or `C`. |
+| `Category` | Enum | `A`, `B`, `C`, or `Companion`. |
 | `DestinationFolder` | String | Name of the target folder selected by the user. |
-| `Status` | Enum | `Success` or `Failed`. |
+| `Status` | Enum | `Success`, `Failed`, or `Skipped`. |
 | `Message` | String | Detailed error message or modification log (e.g., "[Updated: 1 Checked]", "[Repaired]"). |
 
 ## 3) Service Layer Model (Logic Flow)

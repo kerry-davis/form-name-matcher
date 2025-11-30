@@ -301,6 +301,17 @@
             </div>
             <div id="sourcePathDisplay2" class="status-box">No source folder selected</div>
 
+            <!-- Companion Folder Picker -->
+            <div class="button-container" style="margin-top: 15px;">
+                <button id="selectCompanionBtn" class="button btn-secondary" disabled>2. Select Companion Folder</button>
+                <select id="companionConflictSelect" class="button" style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color);" disabled>
+                    <option value="ask">If exists: Ask</option>
+                    <option value="overwrite">If exists: Overwrite</option>
+                    <option value="skip">If exists: Skip</option>
+                </select>
+            </div>
+            <div id="companionPathDisplay" class="status-box">No companion folder selected (optional)</div>
+
             <style>
                 .move-row {
                     display: grid;
@@ -616,11 +627,13 @@
                     <button id="logTabBtnA" class="tab-btn active" onclick="showLogTab('A')">Folder A (Non-Editable) <span id="logCountA">0</span></button>
                     <button id="logTabBtnB" class="tab-btn" onclick="showLogTab('B')">Folder B (Office Use: tickable) <span id="logCountB">0</span></button>
                     <button id="logTabBtnC" class="tab-btn" onclick="showLogTab('C')">Folder C (Office Use: not tickable) <span id="logCountC">0</span></button>
+                    <button id="logTabBtnCompanion" class="tab-btn" onclick="showLogTab('Companion')">Companions <span id="logCountCompanion">0</span></button>
                 </div>
 
                 <div id="moveListA" class="file-list"></div>
                 <div id="moveListB" class="file-list" style="display:none"></div>
                 <div id="moveListC" class="file-list" style="display:none"></div>
+                <div id="moveListCompanion" class="file-list" style="display:none"></div>
             </div>
         </div>
 
@@ -638,8 +651,13 @@
         // Phase 2 State
         let csvDataStore = { A: null, B: null, C: null };
         let destHandles = { A: null, B: null, C: null };
-        let logCounts = { A: 0, B: 0, C: 0 }; // Track move counts
+        let logCounts = { A: 0, B: 0, C: 0, Companion: 0 }; // Track move counts
         let sourceDirHandle2 = null;
+        
+        // Companion Files State
+        let companionDestHandle = null;
+        let companionConflictMode = 'ask'; // 'overwrite' | 'skip' | 'ask'
+        let processedCompanionFolders = new Set(); // Track folders already processed for companions
         
         // Repair Template State
         let repairTemplateBytes = null;
@@ -1136,11 +1154,28 @@
                     if(inp) { inp.disabled = false; }
                 });
                 
+                // Enable Companion Folder controls
+                document.getElementById('selectCompanionBtn').disabled = false;
+                document.getElementById('companionConflictSelect').disabled = false;
+                
                 // Enable Controls
                 setPhase2ControlsState(true);
 
                 checkMoveReady();
             } catch (err) { console.error(err); }
+        });
+        
+        // Companion Folder Picker
+        document.getElementById('selectCompanionBtn').addEventListener('click', async () => {
+            try {
+                companionDestHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                document.getElementById('companionPathDisplay').textContent = `Selected: ${companionDestHandle.name}`;
+            } catch (err) { console.error(err); }
+        });
+        
+        // Companion Conflict Mode
+        document.getElementById('companionConflictSelect').addEventListener('change', (e) => {
+            companionConflictMode = e.target.value;
         });
 
         document.getElementById('copyModeC').addEventListener('change', () => checkRepairAvailability());
@@ -1371,11 +1406,12 @@
             const resultsArea = document.getElementById('moveResultsArea');
             
             // Reset Logs
-            ['A', 'B', 'C'].forEach(c => {
+            ['A', 'B', 'C', 'Companion'].forEach(c => {
                 document.getElementById(`moveList${c}`).innerHTML = '';
                 document.getElementById(`logCount${c}`).textContent = '0';
             });
-            logCounts = { A: 0, B: 0, C: 0 };
+            logCounts = { A: 0, B: 0, C: 0, Companion: 0 };
+            processedCompanionFolders.clear(); // Reset processed folders tracking
             
             const generateSummary = document.getElementById('generateSummaryCheckbox').checked;
             const stopBtn = document.getElementById('stopMoveBtn');
@@ -1582,16 +1618,8 @@
                             // =============================================
 
                             // Determine Destination Directory
-                            // For Category A: Retain the source folder structure
+                            // All categories now flatten to destination root
                             let finalDestHandle = targetFolder;
-                            if (cat === 'A') {
-                                // pathParts currently holds [dir1, dir2, ..., filename]
-                                // We only want the directories.
-                                const dirsOnly = pathParts.slice(0, -1);
-                                for (const part of dirsOnly) {
-                                    finalDestHandle = await finalDestHandle.getDirectoryHandle(part, { create: true });
-                                }
-                            }
 
                             // Check collision
                             let newName = row.name;
@@ -1616,6 +1644,102 @@
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Copied]`;
                             }
+                            
+                            // === COMPANION FILE PROCESSING ===
+                            // Process companion files if: companion folder selected AND folder not yet processed
+                            const folderPath = pathParts.slice(0, -1).join('/'); // Get folder path without filename
+                            if (companionDestHandle && folderPath && !processedCompanionFolders.has(folderPath)) {
+                                processedCompanionFolders.add(folderPath);
+                                
+                                try {
+                                    const kaPattern = /^KA\d{8}.*\.pdf$/i;
+                                    const companionFiles = [];
+                                    
+                                    // List all files in the source folder
+                                    for await (const entry of parentHandle.values()) {
+                                        if (entry.kind === 'file' && !kaPattern.test(entry.name)) {
+                                            companionFiles.push(entry);
+                                        }
+                                    }
+                                    
+                                    if (companionFiles.length > 0) {
+                                        // Create destination subfolder
+                                        const folderName = pathParts.length > 1 ? pathParts[pathParts.length - 2] : pathParts[0];
+                                        const companionSubFolder = await companionDestHandle.getDirectoryHandle(folderName, { create: true });
+                                        
+                                        for (const compFile of companionFiles) {
+                                            if (!isProcessing) break;
+                                            
+                                            const compSummaryRow = {
+                                                FileName: compFile.name,
+                                                OriginalPath: folderPath,
+                                                Category: 'Companion',
+                                                DestinationFolder: companionDestHandle.name + '/' + folderName,
+                                                Status: 'Pending',
+                                                Message: ''
+                                            };
+                                            
+                                            try {
+                                                // Check if file exists in destination
+                                                let shouldProcess = true;
+                                                let existingHandle = null;
+                                                
+                                                try {
+                                                    existingHandle = await companionSubFolder.getFileHandle(compFile.name);
+                                                    // File exists - handle based on conflict mode
+                                                    if (companionConflictMode === 'skip') {
+                                                        logMsg('Companion', compFile.name, folderName, "Skipped (exists)", 'orange');
+                                                        compSummaryRow.Status = 'Skipped';
+                                                        compSummaryRow.Message = '[Skipped - file exists]';
+                                                        shouldProcess = false;
+                                                    } else if (companionConflictMode === 'ask') {
+                                                        const userChoice = confirm(`Companion file "${compFile.name}" already exists in destination.\n\nOverwrite?`);
+                                                        if (!userChoice) {
+                                                            logMsg('Companion', compFile.name, folderName, "Skipped (user)", 'orange');
+                                                            compSummaryRow.Status = 'Skipped';
+                                                            compSummaryRow.Message = '[Skipped - user choice]';
+                                                            shouldProcess = false;
+                                                        }
+                                                    }
+                                                    // 'overwrite' mode continues to process
+                                                } catch (e) {
+                                                    // File doesn't exist - proceed normally
+                                                }
+                                                
+                                                if (shouldProcess) {
+                                                    const compFileData = await compFile.getFile();
+                                                    const compBuffer = await compFileData.arrayBuffer();
+                                                    
+                                                    const newCompHandle = await companionSubFolder.getFileHandle(compFile.name, { create: true });
+                                                    const compWritable = await newCompHandle.createWritable();
+                                                    await compWritable.write(compBuffer);
+                                                    await compWritable.close();
+                                                    
+                                                    if (!isCopyOnly) {
+                                                        await parentHandle.removeEntry(compFile.name);
+                                                        logMsg('Companion', compFile.name, folderName, "Moved", 'green', newCompHandle);
+                                                        compSummaryRow.Status = 'Success';
+                                                        compSummaryRow.Message = '[Moved]';
+                                                    } else {
+                                                        logMsg('Companion', compFile.name, folderName, "Copied", 'blue', newCompHandle);
+                                                        compSummaryRow.Status = 'Success';
+                                                        compSummaryRow.Message = '[Copied]';
+                                                    }
+                                                }
+                                            } catch (compErr) {
+                                                logMsg('Companion', compFile.name, folderName, "Error: " + compErr.message, 'red');
+                                                compSummaryRow.Status = 'Failed';
+                                                compSummaryRow.Message = 'Error: ' + compErr.message;
+                                            }
+                                            
+                                            summaryData.push(compSummaryRow);
+                                        }
+                                    }
+                                } catch (compFolderErr) {
+                                    console.error('Companion folder error:', compFolderErr);
+                                }
+                            }
+                            // === END COMPANION FILE PROCESSING ===
 
                         } catch (e) {
                             logMsg(cat, row.name, row.reason, "Error Moving: " + e.message, 'red');
@@ -1697,7 +1821,7 @@
 
         // Phase 2 Tab Switching
         window.showLogTab = function(cat) {
-            ['A', 'B', 'C'].forEach(c => {
+            ['A', 'B', 'C', 'Companion'].forEach(c => {
                 const isMatch = (c === cat);
                 document.getElementById(`moveList${c}`).style.display = isMatch ? 'block' : 'none';
                 
