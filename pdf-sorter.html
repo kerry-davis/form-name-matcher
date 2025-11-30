@@ -1323,6 +1323,11 @@
                      container.style.pointerEvents = 'auto';
                 }
             }
+            
+            // Enable Repair Checkbox if conditions met
+            if (enabled) {
+                checkRepairAvailability();
+            }
         }
 
         document.getElementById('selectSourceBtn2').addEventListener('click', async () => {
