@@ -1529,21 +1529,131 @@
                             let fileData = await fileHandle.getFile();
                             let fileArrayBuffer = await fileData.arrayBuffer();
                             
-                            // === AUTOMATED MODIFICATION FOR CATEGORY B (Existing Logic) ===
-                            // ... (Keep existing logic for B) ...
+                            // === AUTOMATED MODIFICATION FOR CATEGORY B ===
                             const tickMode = document.querySelector('input[name="tickMode"]:checked').value;
                             
                             if (cat === 'B' && tickMode !== 'retain') {
                                 try {
                                     // Load with pdf-lib
                                     const pdfDoc = await PDFLib.PDFDocument.load(fileArrayBuffer);
-                                    // ... (existing B logic) ...
-                                    // To avoid re-writing the whole B block, I will rely on the context matching.
-                                    // But wait, I need to insert the C logic alongside or after B.
-                                    // Since I cannot "skip" blocks in Edit easily without replacing large chunks,
-                                    // I will locate the END of the B block and insert C.
-                                } catch(e) {} 
+                                    const form = pdfDoc.getForm();
+                                    const fields = form.getFields();
+                                    const pageCount = pdfDoc.getPageCount();
+
+                                    // We need to find the widgets on the LAST page to sort them spatially.
+                                    const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
+                                    const relevantBoxes = [];
+
+                                    for (const box of checkboxes) {
+                                        const widgets = box.acroField.getWidgets();
+                                        for (const w of widgets) {
+                                            const rect = w.getRectangle();
+                                        }
+                                    }
+                                    
+                                    // BETTER STRATEGY: Top-Down Traversal (Page -> Annotations -> Fields)
+                                    const lastPage = pdfDoc.getPage(pageCount - 1);
+                                    const lastPageAnnots = lastPage.node.Annots();
+                                    const candidates = [];
+
+                                    if (lastPageAnnots) {
+                                        // Create a map of Ref -> Field for all checkboxes
+                                        const refToFieldMap = new Map();
+                                        
+                                        for (const field of checkboxes) {
+                                            if (field.ref) refToFieldMap.set(field.ref.toString(), field);
+                                            const widgets = field.acroField.getWidgets();
+                                            widgets.forEach(w => {
+                                                if (w.ref) refToFieldMap.set(w.ref.toString(), field);
+                                            });
+                                        }
+
+                                        // Traverse the page's annotations
+                                        for (let i = 0; i < lastPageAnnots.size(); i++) {
+                                            const annotRef = lastPageAnnots.get(i);
+                                            let annotDict = null;
+                                            let annotStr = null;
+
+                                            if (annotRef instanceof PDFLib.PDFRef) {
+                                                annotStr = annotRef.toString();
+                                                annotDict = pdfDoc.context.lookup(annotRef);
+                                            } else if (annotRef instanceof PDFLib.PDFDict) {
+                                                annotDict = annotRef;
+                                            }
+
+                                            if (!annotDict) continue;
+
+                                            const subtype = annotDict.get(PDFLib.PDFName.of('Subtype'));
+                                            if (subtype !== PDFLib.PDFName.of('Widget')) continue;
+
+                                            let matchedField = null;
+                                            
+                                            if (annotStr && refToFieldMap.has(annotStr)) {
+                                                matchedField = refToFieldMap.get(annotStr);
+                                            }
+                                            
+                                            if (!matchedField) {
+                                                const parent = annotDict.get(PDFLib.PDFName.of('Parent'));
+                                                if (parent instanceof PDFLib.PDFRef && refToFieldMap.has(parent.toString())) {
+                                                    matchedField = refToFieldMap.get(parent.toString());
+                                                }
+                                            }
+
+                                            if (matchedField && matchedField instanceof PDFLib.PDFCheckBox) {
+                                                const rectArr = annotDict.get(PDFLib.PDFName.of('Rect'));
+                                                if (rectArr && rectArr instanceof PDFLib.PDFArray) {
+                                                    const x = rectArr.get(0).asNumber();
+                                                    const y = rectArr.get(1).asNumber();
+                                                    candidates.push({ field: matchedField, x, y });
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Sort: Primary Y (Bottom-up), Secondary X (Left-Right)
+                                    candidates.sort((a, b) => {
+                                        const yDiff = Math.abs(a.y - b.y);
+                                        if (yDiff < 10) return a.x - b.x;
+                                        return a.y - b.y;
+                                    });
+                                    
+                                    // Office Use section is at bottom (lowest Y first after sort)
+                                    // Expect 6 boxes: adr(0), brg(1), cmp(2), dta(3), phn(4), oth(5)
+                                    
+                                    if (candidates.length >= 6) {
+                                        if (Math.abs(candidates[5].y - candidates[0].y) < 20) {
+                                            let tickedCount = 0;
+                                            let untickedCount = 0;
+                                            
+                                            for (let i = 0; i < 6; i++) {
+                                                if (candidates[i]) {
+                                                    if (selectedTickIndices.includes(i)) {
+                                                        candidates[i].field.check();
+                                                        tickedCount++;
+                                                    } else if (tickMode === 'force') {
+                                                        candidates[i].field.uncheck();
+                                                        untickedCount++;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (tickedCount > 0 || untickedCount > 0) {
+                                                fileArrayBuffer = await pdfDoc.save();
+                                                summaryRow.Message += ` [Updated: ${tickedCount} Checked, ${untickedCount} Unchecked]`;
+                                            }
+                                        } else {
+                                            summaryRow.Message += " [Warning: Layout mismatch, no boxes modified]";
+                                        }
+                                    } else {
+                                        summaryRow.Message += ` [Warning: Found only ${candidates.length} checkboxes, expected 6+]`;
+                                    }
+                                    
+                                } catch (pdfLibErr) {
+                                    console.error(pdfLibErr);
+                                    summaryRow.Message += ` [Error Ticking: ${pdfLibErr.message}]`;
+                                }
                             }
+                            // === END CATEGORY B MODIFICATION ===
                             
                             // === AUTOMATED REPAIR FOR CATEGORY C ===
                             const repairMode = document.getElementById('repairModeC').checked;
