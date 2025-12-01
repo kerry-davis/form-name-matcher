@@ -878,7 +878,7 @@
                     return Promise.all(results);
                 }
 
-                const CONCURRENCY_LIMIT = 8; // Active workers
+                const CONCURRENCY_LIMIT = 16; // Active workers (increased for better throughput)
                 const results = await runConcurrentPool(filesToProcess, CONCURRENCY_LIMIT, analysePdf);
                 
                 // Filter and store valid results
@@ -914,7 +914,7 @@
             const results = [];
             const kaPattern = /^KA\d{8}.*\.pdf$/i;
             const queue = [{ handle: dirHandle, path: '', depth: 0 }];
-            const MAX_CONCURRENT_DIRS = 8; // Chrome typically handles this well
+            const MAX_CONCURRENT_DIRS = 16; // Increased for better directory scanning throughput
 
             async function processDirectory(item) {
                 const { handle, path, depth } = item;
