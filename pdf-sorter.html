@@ -283,6 +283,7 @@
                 <div id="listC" class="file-list" style="display:none"></div>
 
                 <div class="button-container">
+                    <button id="refreshAnalysisBtn" class="button btn-secondary" style="display:none;">Refresh</button>
                     <button id="downloadCsvBtnA" class="button btn-danger" style="display:none;">Download Category A CSV</button>
                     <button id="downloadCsvBtnB" class="button btn-primary" style="display:none;">Download Category B CSV</button>
                     <button id="downloadCsvBtnC" class="button btn-warning" style="display:none;">Download Category C CSV</button>
@@ -1131,9 +1132,10 @@
             // This ensures the correct Download button is visible immediately.
             showTab('A');
             
-            // Show "Proceed to Move" button if there are files to process
+            // Show buttons if there are files to process
             if (allFiles.length > 0) {
                 document.getElementById('proceedToMoveBtn').style.display = 'inline-block';
+                document.getElementById('refreshAnalysisBtn').style.display = 'inline-block';
             }
         }
 
@@ -1294,9 +1296,48 @@
             resetLists();
             document.getElementById('sourcePathDisplay').textContent = 'No folder selected';
             document.getElementById('proceedToMoveBtn').style.display = 'none';
+            document.getElementById('refreshAnalysisBtn').style.display = 'none';
             sourceDirHandle = null;
             document.getElementById('analyseBtn').disabled = true;
             clearSession(); // Clear saved session
+        });
+        
+        // Refresh Analysis - remove files that no longer exist
+        document.getElementById('refreshAnalysisBtn').addEventListener('click', async () => {
+            if (!sourceDirHandle || allFiles.length === 0) return;
+            
+            const loading = document.getElementById('loading1');
+            const loadingText = document.getElementById('loadingText1');
+            loading.style.display = 'block';
+            loadingText.textContent = 'Refreshing...';
+            
+            let removedCount = 0;
+            const validFiles = [];
+            
+            for (const file of allFiles) {
+                try {
+                    // Try to access the file - will throw if it no longer exists
+                    await file.parentHandle.getFileHandle(file.name);
+                    validFiles.push(file); // File still exists
+                } catch (err) {
+                    removedCount++; // File no longer exists
+                }
+            }
+            
+            allFiles = validFiles;
+            
+            // Update UI
+            resetLists();
+            displayResults();
+            saveSessionToStorage();
+            
+            loading.style.display = 'none';
+            
+            if (removedCount > 0) {
+                alert(`Removed ${removedCount} file(s) that no longer exist.`);
+            } else {
+                alert('All files still exist. No changes made.');
+            }
         });
 
 
