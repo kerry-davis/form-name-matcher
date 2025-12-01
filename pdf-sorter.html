@@ -514,6 +514,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-a" style="border:none; margin:0;">Folder A<br><small>(Non-Editable)</small></h3>
                         </div>
+                        <label class="copy-option"><input type="checkbox" id="processA" checked disabled> Process</label>
                         <label class="copy-option"><input type="checkbox" id="copyModeA" checked disabled> Copy Only</label>
                     </div>
                     <div>
@@ -536,6 +537,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-b" style="border:none; margin:0;">Folder B<br><small>(Office Use: tickable)</small></h3>
                         </div>
+                        <label class="copy-option"><input type="checkbox" id="processB" checked disabled> Process</label>
                         <label class="copy-option"><input type="checkbox" id="copyModeB" checked disabled> Copy Only</label>
                     </div>
                     <div>
@@ -586,6 +588,7 @@
                             <span class="toggle-icon">▼</span>
                             <h3 class="cat-c" style="border:none; margin:0;">Folder C<br><small>(Office Use: not tickable)</small></h3>
                         </div>
+                        <label class="copy-option"><input type="checkbox" id="processC" checked disabled> Process</label>
                         <label class="copy-option"><input type="checkbox" id="copyModeC" checked disabled> Copy Only</label>
                         <!-- Repair Template Toggle -->
                         <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;">
@@ -675,8 +678,7 @@
         
         // Repair Template State
         let repairTemplateBytes = null;
-        let repairTemplatePdf = null; // PDFDocument instance for appearance copying
-        let repairWidgetCoords = null; // [{x,y,w,h,name,appearanceDict,mkDict,bsDict}, ...]
+        let repairWidgetCoords = null; // [{x,y,w,h,name}, ...]
 
         let isProcessing = false; // Global stop flag
 
@@ -1301,10 +1303,12 @@
         // --- Phase 2: Move Logic ---
         
         function setPhase2ControlsState(enabled) {
-             // Copy Checkboxes
+             // Process and Copy Checkboxes
             ['A','B','C'].forEach(c => {
-                const el = document.getElementById(`copyMode${c}`);
-                if (el) el.disabled = !enabled;
+                const processEl = document.getElementById(`process${c}`);
+                const copyEl = document.getElementById(`copyMode${c}`);
+                if (processEl) processEl.disabled = !enabled;
+                if (copyEl) copyEl.disabled = !enabled;
             });
             
             // Tick Mode Radios
@@ -1409,12 +1413,12 @@
                 const buffer = await file.arrayBuffer();
                 repairTemplateBytes = buffer;
                 
-                // Keep PDFDocument instance in memory for appearance copying
-                repairTemplatePdf = await PDFLib.PDFDocument.load(buffer);
+                // Load template to extract checkbox coordinates
+                const templatePdf = await PDFLib.PDFDocument.load(buffer);
                 
-                const pageCount = repairTemplatePdf.getPageCount();
-                const lastPage = repairTemplatePdf.getPage(pageCount - 1);
-                const form = repairTemplatePdf.getForm();
+                const pageCount = templatePdf.getPageCount();
+                const lastPage = templatePdf.getPage(pageCount - 1);
+                const form = templatePdf.getForm();
                 const fields = form.getFields();
                 const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
                 
@@ -1424,19 +1428,12 @@
                     const widgets = box.acroField.getWidgets();
                     for (const w of widgets) {
                         const rect = w.getRectangle();
-                        const widgetDict = w.dict;
-                        
-                        // Extract appearance streams and characteristics for true 1:1 copy
                         candidates.push({
                              name: box.getName(),
                              x: rect.x,
                              y: rect.y,
                              w: rect.width,
                              h: rect.height,
-                             // Store raw dictionaries for appearance stream copying
-                             appearanceDict: widgetDict.get(PDFLib.PDFName.of('AP')),
-                             mkDict: widgetDict.get(PDFLib.PDFName.of('MK')),
-                             bsDict: widgetDict.get(PDFLib.PDFName.of('BS')),
                         });
                     }
                 }
@@ -1456,7 +1453,6 @@
                      document.getElementById('templateDisplayC').style.color = 'var(--button-primary)';
                 } else {
                      repairTemplateBytes = null;
-                     repairTemplatePdf = null;
                      repairWidgetCoords = null;
                      document.getElementById('templateDisplayC').textContent = `Error: Found only ${candidates.length} checkboxes (Need 6)`;
                      document.getElementById('templateDisplayC').style.color = 'var(--button-danger)';
@@ -1661,6 +1657,10 @@
                 for (const cat of ['A', 'B', 'C']) {
                     if (!isProcessing) break; // Stop check outer loop
                     
+                    // Skip if category not selected for processing
+                    const shouldProcess = document.getElementById(`process${cat}`).checked;
+                    if (!shouldProcess) continue;
+                    
                     const data = csvDataStore[cat];
                     const targetFolder = categoryFolders[cat];
                     const isCopyOnly = document.getElementById(`copyMode${cat}`).checked;
@@ -1864,7 +1864,7 @@
                             
                             // === AUTOMATED REPAIR FOR CATEGORY C ===
                             const repairMode = document.getElementById('repairModeC').checked;
-                            if (cat === 'C' && repairMode && repairWidgetCoords && repairTemplatePdf) {
+                            if (cat === 'C' && repairMode && repairWidgetCoords) {
                                 try {
                                     // Load target PDF
                                     const pdfDoc = await PDFLib.PDFDocument.load(fileArrayBuffer);
@@ -1879,37 +1879,16 @@
                                         try {
                                             const newBox = form.createCheckBox(coord.name);
                                             
-                                            // Add to page with basic positioning
+                                            // Add to page with hardcoded style matching template
                                             newBox.addToPage(lastPage, {
                                                 x: coord.x,
                                                 y: coord.y,
                                                 width: coord.w,
                                                 height: coord.h,
+                                                backgroundColor: PDFLib.rgb(0.9, 0.92, 0.96),  // Light blue-gray
+                                                borderColor: PDFLib.rgb(0.75, 0.75, 0.75),     // Light gray
+                                                borderWidth: 1,
                                             });
-                                            
-                                            // Copy appearance streams from template using cross-document copy
-                                            const newWidgets = newBox.acroField.getWidgets();
-                                            if (newWidgets.length > 0) {
-                                                const newWidgetDict = newWidgets[0].dict;
-                                                
-                                                // Copy AP (Appearance) dictionary - contains actual graphics
-                                                if (coord.appearanceDict) {
-                                                    const copiedAP = pdfDoc.context.copy(repairTemplatePdf.context, coord.appearanceDict);
-                                                    newWidgetDict.set(PDFLib.PDFName.of('AP'), copiedAP);
-                                                }
-                                                
-                                                // Copy MK (Appearance Characteristics) - border/background colors
-                                                if (coord.mkDict) {
-                                                    const copiedMK = pdfDoc.context.copy(repairTemplatePdf.context, coord.mkDict);
-                                                    newWidgetDict.set(PDFLib.PDFName.of('MK'), copiedMK);
-                                                }
-                                                
-                                                // Copy BS (Border Style) - border width/style
-                                                if (coord.bsDict) {
-                                                    const copiedBS = pdfDoc.context.copy(repairTemplatePdf.context, coord.bsDict);
-                                                    newWidgetDict.set(PDFLib.PDFName.of('BS'), copiedBS);
-                                                }
-                                            }
                                         } catch (err) {
                                             // Field might already exist? If so, try to revive it?
                                             // If it exists but is broken, maybe we can't easily replace it with the same name.
