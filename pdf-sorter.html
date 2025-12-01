@@ -1645,7 +1645,8 @@
                 const categoryFolders = {};
                 
                 for (const cat of ['A', 'B', 'C']) {
-                    if (csvDataStore[cat] && destRootHandle) {
+                    const shouldProcess = document.getElementById(`process${cat}`).checked;
+                    if (shouldProcess && csvDataStore[cat] && destRootHandle) {
                         categoryFolders[cat] = await destRootHandle.getDirectoryHandle(categoryFolderNames[cat], { create: true });
                     }
                 }

@@ -50,10 +50,12 @@ erDiagram
   }
 
   MOVEMENT_OP {
-    string status "Pending|Success|Failed"
+    string status "Pending|Success|Failed|Skipped"
+    boolean processEnabled "True if category selected for processing"
     boolean copyOnly "flag"
     boolean tickOverride "True if user overrides PDF ticks"
     boolean tickModified "True if B checkboxes updated"
+    boolean repairApplied "True if C checkboxes injected"
   }
 ```
 
@@ -68,10 +70,16 @@ Notes:
     - **Override Mode**: If enabled by user, it ticks `dta` (or user selection) and unticks others based on spatial sorting of the last page's widget annotations.
 - **C-Category Repair**: When moving Category C files, the system **optionally** repairs non-editable "Office Use" sections.
     - **Input**: User provides a "Template PDF" (Category B) containing correct widgets.
-    - **Analysis**: System extracts widget coordinates (X, Y, W, H) from the template.
-    - **Execution**: Draws a white mask over the target file's old boxes and injects new interactive checkboxes at the template coordinates.
+    - **Analysis**: System extracts widget coordinates (X, Y, W, H) and names from the template.
+    - **Execution**: Injects new interactive checkboxes at the template coordinates with hardcoded styling (light blue-gray background `rgb(0.9, 0.92, 0.96)`, light gray border `rgb(0.75, 0.75, 0.75)`) to match typical form appearance.
+- **Selective Category Processing**: Each category (A, B, C) has a "Process" checkbox in Phase 2.
+    - **Default**: All categories are selected for processing.
+    - **Behavior**: Unchecking a category skips it entirely during execution (no files processed, no output folder created).
+    - **Use Case**: Allows processing only Category C for repair testing without waiting for A and B.
 - **Folder Structure**: 
-    - **All Categories (A, B, C)**: KA-prefixed PDFs are flattened to the destination root (e.g., `Source/Sub/KA123.pdf` -> `Dest/KA123.pdf`).
+    - **Single Destination**: User selects one root destination folder.
+    - **Auto-Created Subfolders**: `Non-Editable/`, `Office Use Tickable/`, `Office Use Not Tickable/`, `Companions/` (created lazily only when needed).
+    - **All Categories (A, B, C)**: KA-prefixed PDFs are flattened to their category subfolder (e.g., `Source/Sub/KA123.pdf` -> `Dest/Non-Editable/KA123.pdf`).
 - **Companion Files**: Non-KA files in the same source folder as processed KA files.
     - **Optional**: User can select a "Companion Folder" destination.
     - **Structure**: Companions retain their subfolder structure (e.g., `Source/Sub/accounts.pdf` -> `Companion-Folder/Sub/accounts.pdf`).
@@ -191,7 +199,11 @@ erDiagram
 
 Notes:
 - **Dark Mode**: Persisted in `localStorage` (`darkMode`). Applied via CSS root variables.
-- **Phase Isolation**: The UI strictly separates Phase 1 (Analysis) and Phase 2 (Movement). Data does not automatically flow from Phase 1 to Phase 2; it MUST go through the CSV Export -> CSV Import cycle to allow human review/editing.
+- **Session Persistence**: Analysis results are saved to `localStorage` (24h expiry) and restored on page reload. File handles cannot be serialized, so source/destination folders must be re-selected.
+- **Phase Flow**: 
+    - **Direct Flow**: "Proceed to Move" button after Phase 1 analysis switches to Phase 2 and auto-populates CSV data.
+    - **Source Inheritance**: Phase 2 inherits the source folder from Phase 1 when using direct flow.
+    - **CSV Override**: Users can still manually upload CSVs to override auto-populated data for human review/editing.
 - **Phase 2 Collapsible Sections**: Rows A, B, and C are collapsible accordion panels. Toggling reduces visual clutter, hiding CSV controls and options while keeping the header visible. The state (expanded/collapsed) is currently transient (not persisted).
 - **Log Interactivity**: Move/Copy logs retain a reference to the destination `FileSystemHandle`, enabling a "Ctrl+Click" action to instantly open the processed PDF for verification.
 - **List Features**: Both Phase 1 and Phase 2 lists support:
