@@ -878,7 +878,7 @@
                     return Promise.all(results);
                 }
 
-                const CONCURRENCY_LIMIT = 16; // Active workers (increased for better throughput)
+                const CONCURRENCY_LIMIT = 8; // Active workers
                 const results = await runConcurrentPool(filesToProcess, CONCURRENCY_LIMIT, analysePdf);
                 
                 // Filter and store valid results
