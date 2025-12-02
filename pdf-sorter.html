@@ -664,6 +664,7 @@
         // --- State Management ---
         let sourceDirHandle = null;
         let allFiles = []; // { name, path, handle, parentHandle, category, reason }
+        let analysisScanMode = null; // 'subfolders' | 'root' | 'both' - stored for refresh
         
         // Phase 2 State
         let csvDataStore = { A: null, B: null, C: null };
@@ -696,6 +697,7 @@
                     reason: f.reason
                 })),
                 sourceFolderName: sourceDirHandle ? sourceDirHandle.name : null,
+                scanMode: analysisScanMode,
                 timestamp: Date.now()
             };
             
@@ -834,8 +836,9 @@
 
             try {
                 txt.textContent = "Scanning folders...";
-                // Get selected scan mode
+                // Get selected scan mode and store for refresh
                 const mode = document.querySelector('input[name="scanMode"]:checked').value;
+                analysisScanMode = mode;
                 
                 const filesToProcess = await scanForPdfsConcurrent(sourceDirHandle, mode);
                 
@@ -878,7 +881,7 @@
                     return Promise.all(results);
                 }
 
-                const CONCURRENCY_LIMIT = 8; // Active workers
+                const CONCURRENCY_LIMIT = 12; // Active workers
                 const results = await runConcurrentPool(filesToProcess, CONCURRENCY_LIMIT, analysePdf);
                 
                 // Filter and store valid results
@@ -1293,6 +1296,7 @@
 
         document.getElementById('resetBtn1').addEventListener('click', () => {
             allFiles = [];
+            analysisScanMode = null;
             resetLists();
             document.getElementById('sourcePathDisplay').textContent = 'No folder selected';
             document.getElementById('proceedToMoveBtn').style.display = 'none';
@@ -1303,40 +1307,87 @@
         });
         
         // Refresh Analysis - remove files that no longer exist
+        // Note: Includes stop functionality for consistent UX with regular analysis
         document.getElementById('refreshAnalysisBtn').addEventListener('click', async () => {
-            if (!sourceDirHandle || allFiles.length === 0) return;
+            if (!sourceDirHandle) {
+                alert('Please select a source folder first.');
+                return;
+            }
+            if (!analysisScanMode) {
+                alert('No scan mode stored. Please run a full analysis first.');
+                return;
+            }
+            
+            // Check if scan mode changed
+            const currentMode = document.querySelector('input[name="scanMode"]:checked').value;
+            if (currentMode !== analysisScanMode) {
+                alert(`Scan mode changed (${analysisScanMode} → ${currentMode}).\nPlease run a full analysis to use the new scan mode.`);
+                return;
+            }
             
             const loading = document.getElementById('loading1');
             const loadingText = document.getElementById('loadingText1');
+            const stopBtn = document.getElementById('stopAnalyseBtn');
+            
             loading.style.display = 'block';
-            loadingText.textContent = 'Refreshing...';
+            stopBtn.style.display = 'inline-block';
+            isProcessing = true;
             
-            let removedCount = 0;
-            const validFiles = [];
-            
-            for (const file of allFiles) {
-                try {
-                    // Try to access the file - will throw if it no longer exists
-                    await file.parentHandle.getFileHandle(file.name);
-                    validFiles.push(file); // File still exists
-                } catch (err) {
-                    removedCount++; // File no longer exists
+            try {
+                // Step 1: Remove deleted files
+                loadingText.textContent = 'Checking for deleted files...';
+                let removedCount = 0;
+                const validFiles = [];
+                const existingPaths = new Set();
+                
+                for (const file of allFiles) {
+                    try {
+                        await file.parentHandle.getFileHandle(file.name);
+                        validFiles.push(file);
+                        existingPaths.add(file.relativePath);
+                    } catch (err) {
+                        removedCount++;
+                    }
                 }
-            }
-            
-            allFiles = validFiles;
-            
-            // Update UI
-            resetLists();
-            displayResults();
-            saveSessionToStorage();
-            
-            loading.style.display = 'none';
-            
-            if (removedCount > 0) {
-                alert(`Removed ${removedCount} file(s) that no longer exist.`);
-            } else {
-                alert('All files still exist. No changes made.');
+                
+                // Step 2: Scan for new files
+                loadingText.textContent = 'Scanning for new files...';
+                const allScannedFiles = await scanForPdfsConcurrent(sourceDirHandle, analysisScanMode);
+                const newFiles = allScannedFiles.filter(f => !existingPaths.has(f.relativePath));
+                
+                // Step 3: Analyze new files
+                let addedCount = 0;
+                if (newFiles.length > 0) {
+                    for (let i = 0; i < newFiles.length; i++) {
+                        loadingText.textContent = `Analyzing new file ${i + 1}/${newFiles.length}...`;
+                        const result = await analysePdf(newFiles[i]);
+                        if (result) {
+                            validFiles.push(result);
+                            addedCount++;
+                        }
+                    }
+                }
+                
+                allFiles = validFiles;
+                
+                // Update UI
+                resetLists();
+                displayResults();
+                saveSessionToStorage();
+                
+                // Show summary
+                if (removedCount === 0 && addedCount === 0) {
+                    alert('All files up to date. No changes made.');
+                } else {
+                    alert(`Refresh complete:\n- Removed: ${removedCount} deleted file(s)\n- Added: ${addedCount} new file(s)`);
+                }
+            } catch (err) {
+                alert('Error during refresh: ' + err.message);
+                console.error(err);
+            } finally {
+                loading.style.display = 'none';
+                stopBtn.style.display = 'none';
+                isProcessing = false;
             }
         });
 
@@ -2217,6 +2268,13 @@
                         handle: null,
                         parentHandle: null
                     }));
+                    
+                    // Restore scan mode
+                    if (session.scanMode) {
+                        analysisScanMode = session.scanMode;
+                        const radio = document.querySelector(`input[name="scanMode"][value="${session.scanMode}"]`);
+                        if (radio) radio.checked = true;
+                    }
                     
                     // Display results
                     displayResults();
