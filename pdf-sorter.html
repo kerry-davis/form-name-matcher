@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,7 +44,12 @@
             --shadow-color: rgba(0, 0, 0, 0.2);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; transition: all 0.3s ease; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
 
         body {
             font-family: 'Inter', sans-serif;
@@ -83,8 +89,19 @@
             margin-bottom: 20px;
         }
 
-        h1, h2 { text-align: center; margin-bottom: 20px; color: var(--accent-primary); }
-        h3 { margin-bottom: 10px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+        h1,
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--accent-primary);
+        }
+
+        h3 {
+            margin-bottom: 10px;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
 
         .button-container {
             display: flex;
@@ -104,12 +121,27 @@
             color: white;
             font-size: 0.9rem;
         }
-        
-        .button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-primary { background-color: var(--button-primary); }
-        .btn-secondary { background-color: var(--button-secondary); }
-        .btn-danger { background-color: var(--button-danger); }
-        .btn-warning { background-color: var(--button-warning); }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background-color: var(--button-primary);
+        }
+
+        .btn-secondary {
+            background-color: var(--button-secondary);
+        }
+
+        .btn-danger {
+            background-color: var(--button-danger);
+        }
+
+        .btn-warning {
+            background-color: var(--button-warning);
+        }
 
         .status-box {
             background: rgba(255, 255, 255, 0.05);
@@ -122,8 +154,10 @@
             word-break: break-all;
         }
 
-        .results-section { display: none; }
-        
+        .results-section {
+            display: none;
+        }
+
         .tab-container {
             display: flex;
             justify-content: center;
@@ -149,11 +183,12 @@
         .file-list {
             height: 300px;
             overflow-y: auto;
-            background: rgba(0,0,0,0.02);
+            background: rgba(0, 0, 0, 0.02);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 10px;
-            resize: vertical; /* Allow vertical resizing */
+            resize: vertical;
+            /* Allow vertical resizing */
             min-height: 150px;
         }
 
@@ -164,19 +199,24 @@
             justify-content: space-between;
             align-items: center;
             font-size: 0.9em;
-            cursor: pointer; /* Visual cue */
+            cursor: pointer;
+            /* Visual cue */
         }
-        
+
         .file-item:hover {
-            background-color: rgba(0,0,0,0.05);
+            background-color: rgba(0, 0, 0, 0.05);
         }
 
         .file-item.visited {
-            background-color: rgba(106, 90, 205, 0.1); /* Subtle purple highlight */
+            background-color: rgba(106, 90, 205, 0.1);
+            /* Subtle purple highlight */
             border-left: 3px solid var(--accent-primary);
         }
-        
-        .file-item:last-child { border-bottom: none; }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
         .reason-tag {
             font-size: 0.8em;
             padding: 2px 6px;
@@ -186,8 +226,12 @@
             margin-left: 10px;
         }
 
-        .loading { display: none; text-align: center; margin: 20px; }
-        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px;
+        }
+
         .phase-selector {
             display: flex;
             justify-content: center;
@@ -212,12 +256,26 @@
             font-weight: bold;
         }
 
-        #phase2-container { display: none; }
+        #phase2-container {
+            display: none;
+        }
 
         /* Special coloring for categories */
-        .cat-a { color: var(--button-danger); } /* Non-Editable */
-        .cat-b { color: var(--button-primary); } /* Tickable */
-        .cat-c { color: var(--button-warning); } /* Locked/Other */
+        .cat-a {
+            color: var(--button-danger);
+        }
+
+        /* Non-Editable */
+        .cat-b {
+            color: var(--button-primary);
+        }
+
+        /* Tickable */
+        .cat-c {
+            color: var(--button-warning);
+        }
+
+        /* Locked/Other */
 
         /* Processing Time Display */
         .status-message {
@@ -228,6 +286,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="toggle-icons">
         <button id="darkModeToggle">🌓</button>
@@ -235,7 +294,7 @@
 
     <div class="container">
         <h1>PDF Form Sorter</h1>
-        
+
         <div class="phase-selector">
             <button class="phase-btn active" id="btnPhase1">1. Analyse & Export</button>
             <button class="phase-btn" id="btnPhase2">2. Move via CSV</button>
@@ -274,9 +333,12 @@
 
             <div id="resultsArea" class="results-section">
                 <div class="tab-container">
-                    <button id="tabBtnA" class="tab-btn active" onclick="showTab('A')">Folder A (Non-Editable) <span id="countA">0</span></button>
-                    <button id="tabBtnB" class="tab-btn" onclick="showTab('B')">Folder B (Office Use: tickable) <span id="countB">0</span></button>
-                    <button id="tabBtnC" class="tab-btn" onclick="showTab('C')">Folder C (Office Use: not tickable) <span id="countC">0</span></button>
+                    <button id="tabBtnA" class="tab-btn active" onclick="showTab('A')">Folder A (Non-Editable) <span
+                            id="countA">0</span></button>
+                    <button id="tabBtnB" class="tab-btn" onclick="showTab('B')">Folder B (Office Use: tickable) <span
+                            id="countB">0</span></button>
+                    <button id="tabBtnC" class="tab-btn" onclick="showTab('C')">Folder C (Office Use: not tickable)
+                        <span id="countC">0</span></button>
                 </div>
 
                 <div id="listA" class="file-list"></div>
@@ -284,13 +346,18 @@
                 <div id="listC" class="file-list" style="display:none"></div>
 
                 <div class="button-container">
-                    <button id="downloadCsvBtnA" class="button btn-danger" style="display:none;">Download Category A CSV</button>
-                    <button id="downloadCsvBtnB" class="button btn-primary" style="display:none;">Download Category B CSV</button>
-                    <button id="downloadCsvBtnC" class="button btn-warning" style="display:none;">Download Category C CSV</button>
+                    <button id="downloadCsvBtnA" class="button btn-danger" style="display:none;">Download Category A
+                        CSV</button>
+                    <button id="downloadCsvBtnB" class="button btn-primary" style="display:none;">Download Category B
+                        CSV</button>
+                    <button id="downloadCsvBtnC" class="button btn-warning" style="display:none;">Download Category C
+                        CSV</button>
                 </div>
-                
-                <div class="button-container" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-                    <button id="proceedToMoveBtn" class="button btn-primary" style="display:none; font-size: 1rem; padding: 12px 24px;">
+
+                <div class="button-container"
+                    style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                    <button id="proceedToMoveBtn" class="button btn-primary"
+                        style="display:none; font-size: 1rem; padding: 12px 24px;">
                         Proceed to Move →
                     </button>
                 </div>
@@ -311,61 +378,71 @@
             <!-- Single Destination Folder Picker -->
             <div class="button-container" style="margin-top: 15px;">
                 <button id="selectDestRootBtn" class="button btn-primary" disabled>2. Select Destination Folder</button>
-                <select id="companionConflictSelect" class="button" style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color);" disabled>
+                <select id="companionConflictSelect" class="button"
+                    style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color);"
+                    disabled>
                     <option value="ask">If companion exists: Ask</option>
                     <option value="overwrite">If companion exists: Overwrite</option>
                     <option value="skip">If companion exists: Skip</option>
                 </select>
             </div>
             <div id="destRootPathDisplay" class="status-box">No destination folder selected</div>
-            <div id="destSubfoldersInfo" class="status-box" style="display:none; font-size: 0.85em; color: var(--text-secondary);">
-                Will create: <strong>Non-Editable/</strong>, <strong>Office Use Tickable/</strong>, <strong>Office Use Not Tickable/</strong>, <strong>Companions/</strong> (if needed)
+            <div id="destSubfoldersInfo" class="status-box"
+                style="display:none; font-size: 0.85em; color: var(--text-secondary);">
+                Will create: <strong>Non-Editable/</strong>, <strong>Office Use Tickable/</strong>, <strong>Office Use
+                    Not Tickable/</strong>, <strong>Companions/</strong> (if needed)
             </div>
 
             <style>
                 .move-row {
                     display: grid;
-                    grid-template-columns: 1fr 1fr; /* Two columns: Category info + CSV */
+                    grid-template-columns: 1fr 1fr;
+                    /* Two columns: Category info + CSV */
                     gap: 20px;
-                    align-items: start; 
-                    background: rgba(255,255,255,0.05);
+                    align-items: start;
+                    background: rgba(255, 255, 255, 0.05);
                     padding: 25px;
                     border: 1px solid var(--border-color);
                     border-radius: 8px;
                     margin-bottom: 15px;
                 }
+
                 /* Hide old destination column */
-                .move-row > div:nth-child(3) {
+                .move-row>div:nth-child(3) {
                     display: none;
                 }
-                
+
                 /* Style for the separated tick container to merge with Row B */
                 .tick-row-full {
-                    background: rgba(255,255,255,0.05);
+                    background: rgba(255, 255, 255, 0.05);
                     border: 1px solid var(--border-color);
-                    border-top: none; /* Visually merge with top row */
+                    border-top: none;
+                    /* Visually merge with top row */
                     border-radius: 0 0 8px 8px;
                     padding: 15px 25px;
                     margin-bottom: 15px;
-                    margin-top: -15px; /* Pull up to connect */
+                    margin-top: -15px;
+                    /* Pull up to connect */
                     width: 100%;
                     box-sizing: border-box;
                 }
-                
+
                 /* Special handling for Row B to connect to ticks */
                 #rowB {
                     margin-bottom: 0;
                     border-radius: 8px 8px 0 0;
-                    border-bottom: none; 
+                    border-bottom: none;
                 }
-                
+
                 /* Hide tick row when parent is collapsed */
-                #rowB.collapsed + .tick-row-full {
+                #rowB.collapsed+.tick-row-full {
                     display: none;
                 }
 
                 /* UNIFORM BUTTON SIZING */
-                #lblCsvA, #lblCsvB, #lblCsvC {
+                #lblCsvA,
+                #lblCsvB,
+                #lblCsvC {
                     width: 100%;
                     display: block;
                     box-sizing: border-box;
@@ -373,33 +450,45 @@
                     margin: 0;
                     min-width: 0;
                 }
+
                 .move-row h3 {
                     margin: 0;
                     font-size: 1rem;
                     border: none;
                     text-align: left;
                 }
+
                 /* Flex column for vertical rhythm in each cell */
-                .move-row > div {
+                .move-row>div {
                     display: flex;
                     flex-direction: column;
                     gap: 10px;
                 }
-                .file-status { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }
+
+                .file-status {
+                    font-size: 0.8rem;
+                    color: var(--text-secondary);
+                    margin-top: 5px;
+                }
+
                 .tick-options {
                     margin-top: 15px;
                     font-size: 0.85rem;
-                    background: rgba(0,0,0,0.05);
+                    background: rgba(0, 0, 0, 0.05);
                     padding: 10px;
                     border-radius: 6px;
-                    width: 100%; /* Ensure full width */
+                    width: 100%;
+                    /* Ensure full width */
                     box-sizing: border-box;
                 }
+
                 .tick-options strong {
-                    grid-column: 1 / -1; /* Span full width */
+                    grid-column: 1 / -1;
+                    /* Span full width */
                     margin-bottom: 5px;
                     display: block;
                 }
+
                 .tick-options label {
                     display: flex;
                     align-items: center;
@@ -408,10 +497,11 @@
                     padding: 4px;
                     border-radius: 4px;
                 }
+
                 .tick-options label:hover {
-                    background: rgba(0,0,0,0.05);
+                    background: rgba(0, 0, 0, 0.05);
                 }
-                
+
                 /* Force Tick Option Labels to grow */
                 #containerTicksB {
                     display: flex;
@@ -421,16 +511,18 @@
                 }
 
                 #containerTicksB label {
-                    flex: 1 0 0;           /* Grow equally, ignore content size */
-                    width: 100%;           /* Ensure it tries to fill */
+                    flex: 1 0 0;
+                    /* Grow equally, ignore content size */
+                    width: 100%;
+                    /* Ensure it tries to fill */
                     display: flex;
-                    justify-content: center; 
+                    justify-content: center;
                     align-items: center;
-                    border: 1px solid rgba(0,0,0,0.1); 
+                    border: 1px solid rgba(0, 0, 0, 0.1);
                     padding: 10px 5px;
                     border-radius: 4px;
                     text-align: center;
-                    background: rgba(255,255,255,0.5);
+                    background: rgba(255, 255, 255, 0.5);
                     white-space: nowrap;
                     cursor: pointer;
                     font-weight: bold;
@@ -439,7 +531,8 @@
                 /* Remove margin-top from separated container ticks to fit nicely */
                 .tick-row-full .tick-options {
                     margin-top: 0;
-                    background: transparent; /* Let parent background show */
+                    background: transparent;
+                    /* Let parent background show */
                     padding: 0;
                 }
 
@@ -454,19 +547,26 @@
                 }
 
                 /* Minimizing Styles */
-                .move-row { transition: all 0.3s ease; }
+                .move-row {
+                    transition: all 0.3s ease;
+                }
+
                 .move-row.collapsed {
-                    grid-template-columns: 1fr; /* Single full-width column */
+                    grid-template-columns: 1fr;
+                    /* Single full-width column */
                     padding: 10px 25px;
                     gap: 0;
                 }
-                .move-row.collapsed > div:nth-child(2),
-                .move-row.collapsed > div:nth-child(3) {
+
+                .move-row.collapsed>div:nth-child(2),
+                .move-row.collapsed>div:nth-child(3) {
                     display: none;
                 }
+
                 .move-row.collapsed .copy-option {
                     display: none;
                 }
+
                 /* Improved Minimize Styles */
                 .move-row-header {
                     display: flex;
@@ -476,9 +576,11 @@
                     border-radius: 4px;
                     margin-bottom: 5px;
                 }
+
                 .move-row-header:hover {
-                    background-color: rgba(0,0,0,0.03);
+                    background-color: rgba(0, 0, 0, 0.03);
                 }
+
                 .toggle-icon {
                     margin-right: 8px;
                     font-size: 0.8rem;
@@ -486,6 +588,7 @@
                     display: inline-block;
                     color: var(--text-secondary);
                 }
+
                 /* Rotate icon when collapsed (point right) */
                 .move-row.collapsed .toggle-icon {
                     transform: rotate(-90deg);
@@ -497,10 +600,12 @@
                         grid-template-columns: 1fr !important;
                         gap: 15px;
                     }
+
                     /* Ensure tick options wrap nicely on smaller screens */
                     .tick-options {
                         flex-wrap: wrap;
                     }
+
                     #containerTicksB {
                         flex-wrap: wrap;
                     }
@@ -513,20 +618,25 @@
                     <div>
                         <div class="move-row-header" onclick="toggleRow('rowA')">
                             <span class="toggle-icon">▼</span>
-                            <h3 class="cat-a" style="border:none; margin:0;">Folder A<br><small>(Non-Editable)</small></h3>
+                            <h3 class="cat-a" style="border:none; margin:0;">Folder A<br><small>(Non-Editable)</small>
+                            </h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="processA" checked disabled> Process</label>
-                        <label class="copy-option"><input type="checkbox" id="copyModeA" checked disabled> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="processA" disabled>
+                            Process</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeA" checked disabled> Copy
+                            Only</label>
                     </div>
                     <div>
-                        <label class="button btn-secondary" id="lblCsvA" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
+                        <label class="button btn-secondary" id="lblCsvA"
+                            style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
                             Select CSV (A)
                             <input type="file" id="csvInputA" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayA" class="file-status">No CSV loaded</div>
                     </div>
                     <div>
-                        <button id="btnDestA" class="button btn-danger" style="width:100%; font-size:0.8rem;" disabled>Select Folder A</button>
+                        <button id="btnDestA" class="button btn-danger" style="width:100%; font-size:0.8rem;"
+                            disabled>Select Folder A</button>
                         <div id="pathDestA" class="file-status">Not Selected</div>
                     </div>
                 </div>
@@ -534,22 +644,27 @@
                 <!-- Row B -->
                 <div class="move-row" id="rowB">
                     <div>
-                         <div class="move-row-header" onclick="toggleRow('rowB')">
+                        <div class="move-row-header" onclick="toggleRow('rowB')">
                             <span class="toggle-icon">▼</span>
-                            <h3 class="cat-b" style="border:none; margin:0;">Folder B<br><small>(Office Use: tickable)</small></h3>
+                            <h3 class="cat-b" style="border:none; margin:0;">Folder B<br><small>(Office Use:
+                                    tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="processB" checked disabled> Process</label>
-                        <label class="copy-option"><input type="checkbox" id="copyModeB" checked disabled> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="processB" disabled>
+                            Process</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeB" checked disabled> Copy
+                            Only</label>
                     </div>
                     <div>
-                        <label class="button btn-secondary" id="lblCsvB" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
+                        <label class="button btn-secondary" id="lblCsvB"
+                            style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
                             Select CSV (B)
                             <input type="file" id="csvInputB" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayB" class="file-status">No CSV loaded</div>
                     </div>
                     <div>
-                        <button id="btnDestB" class="button btn-primary" style="width:100%; font-size:0.8rem;" disabled>Select Folder B</button>
+                        <button id="btnDestB" class="button btn-primary" style="width:100%; font-size:0.8rem;"
+                            disabled>Select Folder B</button>
                         <div id="pathDestB" class="file-status">Not Selected</div>
                     </div>
                 </div>
@@ -558,7 +673,8 @@
                 <div class="tick-row-full" id="rowB-ticks">
                     <div class="tick-options">
                         <!-- Mode Selector -->
-                        <div style="margin-bottom:10px; display:flex; flex-wrap:wrap; gap:15px; font-size:0.9rem; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:10px; width:100%; justify-content:space-between;">
+                        <div
+                            style="margin-bottom:10px; display:flex; flex-wrap:wrap; gap:15px; font-size:0.9rem; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:10px; width:100%; justify-content:space-between;">
                             <label style="cursor:pointer; color:var(--text-primary);">
                                 <input type="radio" name="tickMode" value="retain" checked disabled> Retain Original
                             </label>
@@ -571,7 +687,8 @@
                         </div>
 
                         <!-- Tick Container -->
-                        <div id="containerTicksB" style="display:flex; gap:15px; opacity:0.5; pointer-events:none; align-items:center; flex-wrap:wrap; width:100%;">
+                        <div id="containerTicksB"
+                            style="display:flex; gap:15px; opacity:0.5; pointer-events:none; align-items:center; flex-wrap:wrap; width:100%;">
                             <label><input type="checkbox" class="tick-opt-b" value="0"> adr</label>
                             <label><input type="checkbox" class="tick-opt-b" value="1"> brg</label>
                             <label><input type="checkbox" class="tick-opt-b" value="2"> cmp</label>
@@ -585,12 +702,15 @@
                 <!-- Row C -->
                 <div class="move-row" id="rowC">
                     <div>
-                         <div class="move-row-header" onclick="toggleRow('rowC')">
+                        <div class="move-row-header" onclick="toggleRow('rowC')">
                             <span class="toggle-icon">▼</span>
-                            <h3 class="cat-c" style="border:none; margin:0;">Folder C<br><small>(Office Use: not tickable)</small></h3>
+                            <h3 class="cat-c" style="border:none; margin:0;">Folder C<br><small>(Office Use: not
+                                    tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="processC" checked disabled> Process</label>
-                        <label class="copy-option"><input type="checkbox" id="copyModeC" checked disabled> Copy Only</label>
+                        <label class="copy-option"><input type="checkbox" id="processC" disabled>
+                            Process</label>
+                        <label class="copy-option"><input type="checkbox" id="copyModeC" checked disabled> Copy
+                            Only</label>
                         <!-- Repair Template Toggle -->
                         <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;">
                             <label class="copy-option" title="Injects editable checkboxes from a template file">
@@ -599,15 +719,17 @@
                         </div>
                     </div>
                     <div>
-                        <label class="button btn-secondary" id="lblCsvC" style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
+                        <label class="button btn-secondary" id="lblCsvC"
+                            style="display:block; text-align:center; font-size:0.8rem; opacity:0.5; pointer-events:none;">
                             Select CSV (C)
                             <input type="file" id="csvInputC" accept=".csv" style="display:none" disabled>
                         </label>
                         <div id="csvDisplayC" class="file-status">No CSV loaded</div>
-                        
+
                         <!-- Template Input -->
                         <div id="repairTemplateContainer" style="display:none; margin-top:10px;">
-                            <label class="button btn-warning" id="lblTemplateC" style="display:block; text-align:center; font-size:0.8rem; opacity:0.8;">
+                            <label class="button btn-warning" id="lblTemplateC"
+                                style="display:block; text-align:center; font-size:0.8rem; opacity:0.8;">
                                 Select Template PDF
                                 <input type="file" id="templateInputC" accept=".pdf" style="display:none">
                             </label>
@@ -615,7 +737,8 @@
                         </div>
                     </div>
                     <div>
-                        <button id="btnDestC" class="button btn-warning" style="width:100%; font-size:0.8rem;" disabled>Select Folder C</button>
+                        <button id="btnDestC" class="button btn-warning" style="width:100%; font-size:0.8rem;"
+                            disabled>Select Folder C</button>
                         <div id="pathDestC" class="file-status">Not Selected</div>
                     </div>
                 </div>
@@ -634,17 +757,21 @@
                 <button id="resetBtn2" class="button btn-danger">Reset</button>
             </div>
 
-             <div id="loading2" class="loading">
+            <div id="loading2" class="loading">
                 <img src="https://i.gifer.com/ZZ5H.gif" alt="Moving..." width="40">
                 <p id="loadingText2">Moving files...</p>
             </div>
 
             <div id="moveResultsArea" class="results-section" style="display:none; margin-top:20px;">
                 <div class="tab-container">
-                    <button id="logTabBtnA" class="tab-btn active" onclick="showLogTab('A')">Folder A (Non-Editable) <span id="logCountA">0</span></button>
-                    <button id="logTabBtnB" class="tab-btn" onclick="showLogTab('B')">Folder B (Office Use: tickable) <span id="logCountB">0</span></button>
-                    <button id="logTabBtnC" class="tab-btn" onclick="showLogTab('C')">Folder C (Office Use: not tickable) <span id="logCountC">0</span></button>
-                    <button id="logTabBtnCompanion" class="tab-btn" onclick="showLogTab('Companion')">Companions <span id="logCountCompanion">0</span></button>
+                    <button id="logTabBtnA" class="tab-btn active" onclick="showLogTab('A')">Folder A (Non-Editable)
+                        <span id="logCountA">0</span></button>
+                    <button id="logTabBtnB" class="tab-btn" onclick="showLogTab('B')">Folder B (Office Use: tickable)
+                        <span id="logCountB">0</span></button>
+                    <button id="logTabBtnC" class="tab-btn" onclick="showLogTab('C')">Folder C (Office Use: not
+                        tickable) <span id="logCountC">0</span></button>
+                    <button id="logTabBtnCompanion" class="tab-btn" onclick="showLogTab('Companion')">Companions <span
+                            id="logCountCompanion">0</span></button>
                 </div>
 
                 <div id="moveListA" class="file-list"></div>
@@ -655,7 +782,7 @@
         </div>
 
         <div id="processingTimeContainer" class="container" style="display: none; margin-top: 20px;">
-             <p id="processingTime" class="status-message">Total processing time: <span id="time"></span></p>
+            <p id="processingTime" class="status-message">Total processing time: <span id="time"></span></p>
         </div>
 
     </div>
@@ -665,19 +792,19 @@
         let sourceDirHandle = null;
         let allFiles = []; // { name, path, handle, parentHandle, category, reason }
         let analysisScanMode = null; // 'subfolders' | 'root' | 'both' - stored for refresh
-        
+
         // Phase 2 State
         let csvDataStore = { A: null, B: null, C: null };
         let destHandles = { A: null, B: null, C: null }; // Auto-populated from destRootHandle
         let destRootHandle = null; // Single destination root
         let logCounts = { A: 0, B: 0, C: 0, Companion: 0 }; // Track move counts
         let sourceDirHandle2 = null;
-        
+
         // Companion Files State
         let companionDestHandle = null; // Auto-populated from destRootHandle
         let companionConflictMode = 'ask'; // 'overwrite' | 'skip' | 'ask'
         let processedCompanionFolders = new Set(); // Track folders already processed for companions
-        
+
         // Repair Template State
         let repairTemplateBytes = null;
         let repairWidgetCoords = null; // [{x,y,w,h,name}, ...]
@@ -687,7 +814,7 @@
         // --- Session Persistence ---
         function saveSessionToStorage() {
             if (allFiles.length === 0) return;
-            
+
             // Save analysis results (without file handles - those can't be serialized)
             const sessionData = {
                 files: allFiles.map(f => ({
@@ -700,14 +827,14 @@
                 scanMode: analysisScanMode,
                 timestamp: Date.now()
             };
-            
+
             localStorage.setItem('pdfSorterSession', JSON.stringify(sessionData));
         }
-        
+
         function loadSessionFromStorage() {
             const saved = localStorage.getItem('pdfSorterSession');
             if (!saved) return null;
-            
+
             try {
                 const sessionData = JSON.parse(saved);
                 // Check if session is less than 24 hours old
@@ -720,11 +847,11 @@
                 return null;
             }
         }
-        
+
         function clearSession() {
             localStorage.removeItem('pdfSorterSession');
         }
-        
+
         // --- UI Toggles ---
         const darkModeToggle = document.getElementById('darkModeToggle');
         darkModeToggle.addEventListener('click', () => {
@@ -747,29 +874,29 @@
             document.getElementById('phase2-container').style.display = 'block';
             document.getElementById('btnPhase1').classList.remove('active');
             document.getElementById('btnPhase2').classList.add('active');
-            
+
             // Auto-inherit source folder from Phase 1
             if (sourceDirHandle && !sourceDirHandle2) {
                 sourceDirHandle2 = sourceDirHandle;
                 document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name} (from Phase 1)`;
-                
+
                 // Enable CSV Inputs
                 ['A', 'B', 'C'].forEach(cat => {
                     const lbl = document.getElementById(`lblCsv${cat}`);
                     const inp = document.getElementById(`csvInput${cat}`);
-                    if(lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
-                    if(inp) { inp.disabled = false; }
+                    if (lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
+                    if (inp) { inp.disabled = false; }
                 });
-                
+
                 // Enable Destination Folder picker
                 document.getElementById('selectDestRootBtn').disabled = false;
                 document.getElementById('companionConflictSelect').disabled = false;
-                
+
                 // Enable Controls
                 setPhase2ControlsState(true);
                 checkMoveReady();
             }
-            
+
             // Auto-populate csvDataStore from allFiles if available
             if (allFiles.length > 0 && !csvDataStore.A && !csvDataStore.B && !csvDataStore.C) {
                 const groups = { A: [], B: [], C: [] };
@@ -789,7 +916,7 @@
                 csvDataStore.A = groups.A.length > 0 ? groups.A : null;
                 csvDataStore.B = groups.B.length > 0 ? groups.B : null;
                 csvDataStore.C = groups.C.length > 0 ? groups.C : null;
-                
+
                 // Update CSV displays
                 ['A', 'B', 'C'].forEach(cat => {
                     const data = csvDataStore[cat];
@@ -799,7 +926,7 @@
                         display.style.color = 'var(--button-primary)';
                     }
                 });
-                
+
                 checkMoveReady();
             }
         });
@@ -816,22 +943,22 @@
 
         document.getElementById('analyseBtn').addEventListener('click', async () => {
             if (!sourceDirHandle) return;
-            
+
             const loading = document.getElementById('loading1');
             const txt = document.getElementById('loadingText1');
             const stopBtn = document.getElementById('stopAnalyseBtn');
             const analyseBtn = document.getElementById('analyseBtn');
             const timeContainer = document.getElementById('processingTimeContainer');
-            
+
             loading.style.display = 'block';
             stopBtn.style.display = 'inline-block';
             timeContainer.style.display = 'none';
             analyseBtn.disabled = true; // Prevent double click
             isProcessing = true;
-            
+
             allFiles = [];
             resetLists();
-            
+
             const startTime = performance.now();
 
             try {
@@ -839,17 +966,17 @@
                 // Get selected scan mode and store for refresh
                 const mode = document.querySelector('input[name="scanMode"]:checked').value;
                 analysisScanMode = mode;
-                
+
                 const filesToProcess = await scanForPdfsConcurrent(sourceDirHandle, mode);
-                
+
                 let processedCount = 0;
                 const total = filesToProcess.length;
-                
+
                 // Helper for Dynamic Concurrency Pool
                 async function runConcurrentPool(items, limit, taskFn) {
                     const results = [];
                     const executing = new Set();
-                    
+
                     let lastUpdate = 0;
 
                     for (const item of items) {
@@ -858,7 +985,7 @@
                         const p = taskFn(item).then(res => {
                             executing.delete(p);
                             processedCount++;
-                            
+
                             // Throttle UI updates to every 100ms
                             const now = Date.now();
                             if (now - lastUpdate > 100) {
@@ -867,13 +994,13 @@
                                     txt.textContent = `Analyzing ${processedCount}/${total}`;
                                 });
                             }
-                            
+
                             return res;
                         });
-                        
+
                         results.push(p);
                         executing.add(p);
-                        
+
                         if (executing.size >= limit) {
                             await Promise.race(executing);
                         }
@@ -883,17 +1010,17 @@
 
                 const CONCURRENCY_LIMIT = 12; // Active workers
                 const results = await runConcurrentPool(filesToProcess, CONCURRENCY_LIMIT, analysePdf);
-                
+
                 // Filter and store valid results
                 results.forEach(r => {
                     if (r) allFiles.push(r);
                 });
 
                 displayResults();
-                
+
                 const endTime = performance.now();
                 displayProcessingTime(startTime, endTime);
-                
+
                 // Save session to localStorage
                 saveSessionToStorage();
 
@@ -906,7 +1033,7 @@
                 analyseBtn.disabled = false;
             }
         });
-        
+
         document.getElementById('stopAnalyseBtn').addEventListener('click', () => {
             isProcessing = false;
             document.getElementById('loadingText1').textContent = "Stopping...";
@@ -922,22 +1049,22 @@
             async function processDirectory(item) {
                 const { handle, path, depth } = item;
                 const subDirs = [];
-                
+
                 try {
                     for await (const entry of handle.values()) {
-                         // Check stop flag
+                        // Check stop flag
                         if (!isProcessing) return;
 
                         if (entry.kind === 'directory') {
-                             // Logic: Recurse if mode is 'subfolders' or 'both'.
+                            // Logic: Recurse if mode is 'subfolders' or 'both'.
                             // Also, if mode is 'root', we STOP at depth 0.
                             if (mode !== 'root') {
-                                 const subPath = path ? `${path}/${entry.name}` : entry.name;
-                                 subDirs.push({ 
-                                     handle: entry, 
-                                     path: subPath, 
-                                     depth: depth + 1 
-                                 });
+                                const subPath = path ? `${path}/${entry.name}` : entry.name;
+                                subDirs.push({
+                                    handle: entry,
+                                    path: subPath,
+                                    depth: depth + 1
+                                });
                             }
                         } else if (entry.kind === 'file') {
                             // Logic:
@@ -962,17 +1089,17 @@
                 } catch (e) {
                     console.warn(`Error reading ${handle.name}:`, e);
                 }
-                
+
                 return subDirs;
             }
 
             while (queue.length > 0 && isProcessing) {
                 const batch = queue.splice(0, MAX_CONCURRENT_DIRS);
                 const batchResults = await Promise.all(batch.map(item => processDirectory(item)));
-                
+
                 // Add found subdirectories to queue
                 batchResults.forEach(subDirs => {
-                    if(subDirs) queue.push(...subDirs);
+                    if (subDirs) queue.push(...subDirs);
                 });
             }
 
@@ -1007,12 +1134,12 @@
 
                 // --- CHECK 1: Page 1 Analysis (Is it Editable?) ---
                 const page1 = await pdf.getPage(1);
-                
+
                 // Optional: Check Header (to ensure it's the right form type)
                 const textContent1 = await page1.getTextContent();
                 const page1Text = textContent1.items.map(item => item.str).join(' ');
                 if (!page1Text.toLowerCase().includes("annual enterprise survey")) {
-                     return { ...res, reason: 'Non-Editable' }; // Retain A
+                    return { ...res, reason: 'Non-Editable' }; // Retain A
                 }
 
                 const p1Anns = await page1.getAnnotations();
@@ -1045,10 +1172,10 @@
                 // --- CHECK 2: Office Use Section (Last Page) ---
                 const lastPage = await pdf.getPage(pdf.numPages);
                 const lastPageText = await lastPage.getTextContent();
-                
+
                 // Find "Office use" text
-                const officeUseItem = lastPageText.items.find(item => 
-                    item.str.toLowerCase().includes("office use") || 
+                const officeUseItem = lastPageText.items.find(item =>
+                    item.str.toLowerCase().includes("office use") ||
                     item.str.toLowerCase().includes("office use:")
                 );
 
@@ -1058,22 +1185,22 @@
                     return { ...res, reason: 'Missing "Office use:" section' }; // Retain A
                 }
 
-                const textY = officeUseItem.transform[5]; 
+                const textY = officeUseItem.transform[5];
                 const anns = await lastPage.getAnnotations();
-                
+
                 // Find checkboxes physically below the "Office use" text
                 // We use a loose threshold (+20) to handle minor alignment issues, 
                 // but STRICTLY exclude boxes significantly higher up (user boxes).
-                const relevantBoxes = anns.filter(a => 
-                    a.subtype === 'Widget' && 
-                    a.fieldType === 'Btn' && 
+                const relevantBoxes = anns.filter(a =>
+                    a.subtype === 'Widget' &&
+                    a.fieldType === 'Btn' &&
                     !a.radioButton &&
                     a.rect[1] < (textY + 20) // Must be below or just inline with the text
                 );
 
                 if (relevantBoxes.length === 0) {
                     // If text is found but no boxes in the office section, it's effectively "Not Tickable" -> C
-                    return { ...res, category: 'C', reason: 'No checkboxes found in Office Use section' }; 
+                    return { ...res, category: 'C', reason: 'No checkboxes found in Office Use section' };
                 }
 
                 // Check if these specific OFFICE boxes are Editable
@@ -1119,7 +1246,7 @@
 
         function displayResults() {
             document.getElementById('resultsArea').style.display = 'block';
-            
+
             const groups = { A: [], B: [], C: [] };
             allFiles.forEach(f => groups[f.category].push(f));
 
@@ -1134,7 +1261,7 @@
             // Fix: Initialize view state to match the default active tab (A)
             // This ensures the correct Download button is visible immediately.
             showTab('A');
-            
+
             // Show buttons if there are files to process
             if (allFiles.length > 0) {
                 document.getElementById('proceedToMoveBtn').style.display = 'inline-block';
@@ -1153,20 +1280,20 @@
                     <span>${f.relativePath}</span>
                     <span class="reason-tag">${f.reason}</span>
                 `;
-                
+
                 // Click to open
                 div.addEventListener('click', async (e) => {
                     if (!e.ctrlKey && !e.metaKey) return; // specific user request
-                    
+
                     // Add visited state
                     div.classList.add('visited');
-                    
+
                     try {
                         const file = await f.handle.getFile();
                         const url = URL.createObjectURL(file);
                         window.open(url, '_blank');
                         // Note: Revoke logic is tricky with open-in-new-tab, browser handles cleanup usually on close
-                    } catch(e) {
+                    } catch (e) {
                         alert("Could not open file: " + e.message);
                     }
                 });
@@ -1175,7 +1302,7 @@
             });
         }
 
-        window.showTab = function(cat) {
+        window.showTab = function (cat) {
             ['A', 'B', 'C'].forEach(c => {
                 const isMatch = (c === cat);
                 document.getElementById(`list${c}`).style.display = isMatch ? 'block' : 'none';
@@ -1184,7 +1311,7 @@
             });
             // Simple generic tab toggle
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            
+
             // Fix: Explicitly target the correct button via ID to avoid selector errors
             const activeBtn = document.getElementById(`tabBtn${cat}`);
             if (activeBtn) activeBtn.classList.add('active');
@@ -1197,7 +1324,7 @@
                 alert(`No files in Category ${cat} to export.`);
                 return;
             }
-            
+
             let csv = "FilePath,FileName,Category,Reason,MoveStatus\n";
             files.forEach(f => {
                 // Remove filename from path (get directory only)
@@ -1216,12 +1343,12 @@
                 const reason = `"${f.reason}"`;
                 csv += `${path},${f.name},${f.category},${reason},Pending\n`;
             });
-            
+
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `pdf-analysis-${cat}-${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.csv`;
+            a.download = `pdf-analysis-${cat}-${new Date().toISOString().slice(0, 19).replace(/[:]/g, '-')}.csv`;
             a.click();
         }
 
@@ -1232,7 +1359,7 @@
         // Proceed to Move - Direct Phase 1 → Phase 2 Flow
         document.getElementById('proceedToMoveBtn').addEventListener('click', () => {
             if (allFiles.length === 0) return;
-            
+
             // Group files by category and convert to CSV format
             const groups = { A: [], B: [], C: [] };
             allFiles.forEach(f => {
@@ -1242,7 +1369,7 @@
                 if (sourceDirHandle) {
                     dirPath = dirPath ? `${sourceDirHandle.name}/${dirPath}` : sourceDirHandle.name;
                 }
-                
+
                 groups[f.category].push({
                     path: dirPath,
                     name: f.name,
@@ -1250,43 +1377,43 @@
                     reason: f.reason
                 });
             });
-            
+
             // Populate csvDataStore
             csvDataStore.A = groups.A.length > 0 ? groups.A : null;
             csvDataStore.B = groups.B.length > 0 ? groups.B : null;
             csvDataStore.C = groups.C.length > 0 ? groups.C : null;
-            
+
             // Copy source folder to Phase 2
             sourceDirHandle2 = sourceDirHandle;
-            
+
             // Switch to Phase 2
             document.getElementById('phase1-container').style.display = 'none';
             document.getElementById('phase2-container').style.display = 'block';
             document.getElementById('btnPhase1').classList.remove('active');
             document.getElementById('btnPhase2').classList.add('active');
-            
+
             // Update Phase 2 UI
             document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name} (from Phase 1)`;
-            
+
             // Update CSV displays to show loaded counts
             ['A', 'B', 'C'].forEach(cat => {
                 const data = csvDataStore[cat];
                 const display = document.getElementById(`csvDisplay${cat}`);
                 const lbl = document.getElementById(`lblCsv${cat}`);
                 const inp = document.getElementById(`csvInput${cat}`);
-                
+
                 if (data) {
                     display.textContent = `From Analysis (${data.length} files)`;
                     display.style.color = 'var(--button-primary)';
                 } else {
                     display.textContent = 'No files in this category';
                 }
-                
+
                 // Enable CSV inputs for override
-                if(lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
-                if(inp) { inp.disabled = false; }
+                if (lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
+                if (inp) { inp.disabled = false; }
             });
-            
+
             // Enable controls
             document.getElementById('selectDestRootBtn').disabled = false;
             document.getElementById('companionConflictSelect').disabled = false;
@@ -1305,7 +1432,7 @@
             document.getElementById('analyseBtn').disabled = true;
             clearSession(); // Clear saved session
         });
-        
+
         // Refresh Analysis - remove files that no longer exist
         // Note: Includes stop functionality for consistent UX with regular analysis
         document.getElementById('refreshAnalysisBtn').addEventListener('click', async () => {
@@ -1317,29 +1444,29 @@
                 alert('No scan mode stored. Please run a full analysis first.');
                 return;
             }
-            
+
             // Check if scan mode changed
             const currentMode = document.querySelector('input[name="scanMode"]:checked').value;
             if (currentMode !== analysisScanMode) {
                 alert(`Scan mode changed (${analysisScanMode} → ${currentMode}).\nPlease run a full analysis to use the new scan mode.`);
                 return;
             }
-            
+
             const loading = document.getElementById('loading1');
             const loadingText = document.getElementById('loadingText1');
             const stopBtn = document.getElementById('stopAnalyseBtn');
-            
+
             loading.style.display = 'block';
             stopBtn.style.display = 'inline-block';
             isProcessing = true;
-            
+
             try {
                 // Step 1: Remove deleted files
                 loadingText.textContent = 'Checking for deleted files...';
                 let removedCount = 0;
                 const validFiles = [];
                 const existingPaths = new Set();
-                
+
                 for (const file of allFiles) {
                     try {
                         await file.parentHandle.getFileHandle(file.name);
@@ -1349,12 +1476,12 @@
                         removedCount++;
                     }
                 }
-                
+
                 // Step 2: Scan for new files
                 loadingText.textContent = 'Scanning for new files...';
                 const allScannedFiles = await scanForPdfsConcurrent(sourceDirHandle, analysisScanMode);
                 const newFiles = allScannedFiles.filter(f => !existingPaths.has(f.relativePath));
-                
+
                 // Step 3: Analyze new files
                 let addedCount = 0;
                 if (newFiles.length > 0) {
@@ -1367,14 +1494,14 @@
                         }
                     }
                 }
-                
+
                 allFiles = validFiles;
-                
+
                 // Update UI
                 resetLists();
                 displayResults();
                 saveSessionToStorage();
-                
+
                 // Show summary
                 if (removedCount === 0 && addedCount === 0) {
                     alert('All files up to date. No changes made.');
@@ -1393,19 +1520,19 @@
 
 
         // --- Phase 2: Move Logic ---
-        
+
         function setPhase2ControlsState(enabled) {
-             // Process and Copy Checkboxes
-            ['A','B','C'].forEach(c => {
+            // Process and Copy Checkboxes
+            ['A', 'B', 'C'].forEach(c => {
                 const processEl = document.getElementById(`process${c}`);
                 const copyEl = document.getElementById(`copyMode${c}`);
                 if (processEl) processEl.disabled = !enabled;
                 if (copyEl) copyEl.disabled = !enabled;
             });
-            
+
             // Tick Mode Radios
             document.querySelectorAll('input[name="tickMode"]').forEach(r => r.disabled = !enabled);
-            
+
             // Tick Container: If disabled, force visual disable. If enabled, let logic decide based on radio.
             const container = document.getElementById('containerTicksB');
             if (!enabled) {
@@ -1416,11 +1543,11 @@
                 const mode = document.querySelector('input[name="tickMode"]:checked').value;
                 const isRetain = (mode === 'retain');
                 if (!isRetain) {
-                     container.style.opacity = '1';
-                     container.style.pointerEvents = 'auto';
+                    container.style.opacity = '1';
+                    container.style.pointerEvents = 'auto';
                 }
             }
-            
+
             // Enable Repair Checkbox if conditions met
             if (enabled) {
                 checkRepairAvailability();
@@ -1428,47 +1555,47 @@
         }
 
         document.getElementById('selectSourceBtn2').addEventListener('click', async () => {
-             try {
+            try {
                 sourceDirHandle2 = await window.showDirectoryPicker();
                 document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name}`;
-                
+
                 // Enable CSV Inputs
                 ['A', 'B', 'C'].forEach(cat => {
                     const lbl = document.getElementById(`lblCsv${cat}`);
                     const inp = document.getElementById(`csvInput${cat}`);
-                    if(lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
-                    if(inp) { inp.disabled = false; }
+                    if (lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
+                    if (inp) { inp.disabled = false; }
                 });
-                
+
                 // Enable Destination Folder picker
                 document.getElementById('selectDestRootBtn').disabled = false;
                 document.getElementById('companionConflictSelect').disabled = false;
-                
+
                 // Enable Controls
                 setPhase2ControlsState(true);
 
                 checkMoveReady();
             } catch (err) { console.error(err); }
         });
-        
+
         // Single Destination Folder Picker
         document.getElementById('selectDestRootBtn').addEventListener('click', async () => {
             try {
                 destRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
                 document.getElementById('destRootPathDisplay').textContent = `Selected: ${destRootHandle.name}`;
                 document.getElementById('destSubfoldersInfo').style.display = 'block';
-                
+
                 // Auto-create subfolder handles (will be created on execute)
                 // For now, just set destHandles and companionDestHandle to indicate destination is ready
                 destHandles.A = destRootHandle;
                 destHandles.B = destRootHandle;
                 destHandles.C = destRootHandle;
                 companionDestHandle = destRootHandle;
-                
+
                 checkMoveReady();
             } catch (err) { console.error(err); }
         });
-        
+
         // Companion Conflict Mode
         document.getElementById('companionConflictSelect').addEventListener('change', (e) => {
             companionConflictMode = e.target.value;
@@ -1482,75 +1609,75 @@
             // Update: Repair is an optional checkbox.
             const repairToggle = document.getElementById('repairModeC');
             const templateContainer = document.getElementById('repairTemplateContainer');
-            
+
             if (sourceDirHandle2) {
                 repairToggle.disabled = false;
             }
-            
+
             if (repairToggle.checked) {
-                 templateContainer.style.display = 'block';
+                templateContainer.style.display = 'block';
             } else {
-                 templateContainer.style.display = 'none';
+                templateContainer.style.display = 'none';
             }
         }
-        
+
         document.getElementById('repairModeC').addEventListener('change', checkRepairAvailability);
 
         // Template Upload Handler
         document.getElementById('templateInputC').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             try {
                 const buffer = await file.arrayBuffer();
                 repairTemplateBytes = buffer;
-                
+
                 // Load template to extract checkbox coordinates
                 const templatePdf = await PDFLib.PDFDocument.load(buffer);
-                
+
                 const pageCount = templatePdf.getPageCount();
                 const lastPage = templatePdf.getPage(pageCount - 1);
                 const form = templatePdf.getForm();
                 const fields = form.getFields();
                 const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
-                
+
                 const candidates = [];
-                
+
                 for (const box of checkboxes) {
                     const widgets = box.acroField.getWidgets();
                     for (const w of widgets) {
                         const rect = w.getRectangle();
                         candidates.push({
-                             name: box.getName(),
-                             x: rect.x,
-                             y: rect.y,
-                             w: rect.width,
-                             h: rect.height,
+                            name: box.getName(),
+                            x: rect.x,
+                            y: rect.y,
+                            w: rect.width,
+                            h: rect.height,
                         });
                     }
                 }
-                
+
                 // Sort candidates by Y (ascending) then X
                 candidates.sort((a, b) => {
-                     const yDiff = Math.abs(a.y - b.y);
-                     if (yDiff < 10) return a.x - b.x;
-                     return a.y - b.y;
+                    const yDiff = Math.abs(a.y - b.y);
+                    if (yDiff < 10) return a.x - b.x;
+                    return a.y - b.y;
                 });
-                
+
                 // Filter: Take the bottom-most row (first 6 in sorted list)
                 // Expecting 6: adr, brg, cmp, dta, phn, oth
                 if (candidates.length >= 6) {
-                     repairWidgetCoords = candidates.slice(0, 6);
-                     document.getElementById('templateDisplayC').textContent = `Loaded: ${file.name} (Found ${repairWidgetCoords.length} widgets)`;
-                     document.getElementById('templateDisplayC').style.color = 'var(--button-primary)';
+                    repairWidgetCoords = candidates.slice(0, 6);
+                    document.getElementById('templateDisplayC').textContent = `Loaded: ${file.name} (Found ${repairWidgetCoords.length} widgets)`;
+                    document.getElementById('templateDisplayC').style.color = 'var(--button-primary)';
                 } else {
-                     repairTemplateBytes = null;
-                     repairWidgetCoords = null;
-                     document.getElementById('templateDisplayC').textContent = `Error: Found only ${candidates.length} checkboxes (Need 6)`;
-                     document.getElementById('templateDisplayC').style.color = 'var(--button-danger)';
-                     alert("Template Invalid: Could not find 6 checkboxes on the last page.");
+                    repairTemplateBytes = null;
+                    repairWidgetCoords = null;
+                    document.getElementById('templateDisplayC').textContent = `Error: Found only ${candidates.length} checkboxes (Need 6)`;
+                    document.getElementById('templateDisplayC').style.color = 'var(--button-danger)';
+                    alert("Template Invalid: Could not find 6 checkboxes on the last page.");
                 }
-                
+
             } catch (err) {
                 console.error(err);
                 document.getElementById('templateDisplayC').textContent = "Error reading template";
@@ -1575,7 +1702,7 @@
                 destHandles[cat] = handle;
                 document.getElementById(`pathDest${cat}`).textContent = handle.name;
                 checkMoveReady();
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         }
 
         document.getElementById('btnDestA').addEventListener('click', () => pickDest('A'));
@@ -1602,33 +1729,33 @@
             const copyA = document.getElementById('copyModeA').checked;
             const copyB = document.getElementById('copyModeB').checked;
             const copyC = document.getElementById('copyModeC').checked;
-            
+
             // Count active categories?
             // Actually, we should only consider the categories that have CSVs loaded.
             // But the checkboxes are always there.
             // Let's assume the intent is based on the checked state of ALL enabled boxes.
             // But wait, if I don't upload CSV A, copyModeA is irrelevant.
             // So we should filter by 'active' rows.
-            
+
             const hasCsvA = !!csvDataStore.A;
             const hasCsvB = !!csvDataStore.B;
             const hasCsvC = !!csvDataStore.C;
-            
+
             let totalOps = 0;
             let moveOps = 0;
             let copyOps = 0;
-            
+
             if (hasCsvA) { totalOps++; if (!copyA) moveOps++; else copyOps++; }
             if (hasCsvB) { totalOps++; if (!copyB) moveOps++; else copyOps++; }
             if (hasCsvC) { totalOps++; if (!copyC) moveOps++; else copyOps++; }
-            
+
             const btn = document.getElementById('executeMoveBtn');
-            
+
             if (totalOps === 0) {
                 btn.textContent = "Execute Move"; // Default
                 return;
             }
-            
+
             if (moveOps > 0 && copyOps === 0) {
                 btn.textContent = "Execute Move";
                 btn.className = "button btn-danger"; // Warning color for Move
@@ -1650,13 +1777,13 @@
                 document.getElementById('executeMoveBtn').disabled = true;
                 return;
             }
-            
+
             // Check if destination is selected AND at least one category has files
             const hasAnyFiles = csvDataStore.A || csvDataStore.B || csvDataStore.C;
             const hasDestination = !!destRootHandle;
 
             document.getElementById('executeMoveBtn').disabled = !(hasAnyFiles && hasDestination);
-            
+
             // Update Label
             updateExecuteButtonLabel();
         }
@@ -1665,14 +1792,14 @@
             const lines = text.split('\n').filter(l => l.trim());
             // Simple check to see if header exists, assuming standard format
             const startIdx = lines[0].toLowerCase().startsWith('filepath') ? 1 : 0;
-            
+
             // Improved Regex split to handle quoted fields
             const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-            
+
             const data = [];
-            for(let i=startIdx; i<lines.length; i++) {
+            for (let i = startIdx; i < lines.length; i++) {
                 const cols = lines[i].split(regex).map(s => s.replace(/^"|"$/g, '').trim());
-                if(cols.length < 2) continue; // Need at least path and name
+                if (cols.length < 2) continue; // Need at least path and name
                 data.push({
                     path: cols[0],
                     name: cols[1],
@@ -1686,7 +1813,7 @@
         document.getElementById('executeMoveBtn').addEventListener('click', async () => {
             const loading = document.getElementById('loading2');
             const resultsArea = document.getElementById('moveResultsArea');
-            
+
             // Reset Logs
             ['A', 'B', 'C', 'Companion'].forEach(c => {
                 document.getElementById(`moveList${c}`).innerHTML = '';
@@ -1694,11 +1821,11 @@
             });
             logCounts = { A: 0, B: 0, C: 0, Companion: 0 };
             processedCompanionFolders.clear(); // Reset processed folders tracking
-            
+
             const generateSummary = document.getElementById('generateSummaryCheckbox').checked;
             const stopBtn = document.getElementById('stopMoveBtn');
             const execBtn = document.getElementById('executeMoveBtn');
-            
+
             // Warning Check for Move
             const copyA = document.getElementById('copyModeA').checked;
             const copyB = document.getElementById('copyModeB').checked;
@@ -1706,54 +1833,54 @@
             const hasCsvA = !!csvDataStore.A;
             const hasCsvB = !!csvDataStore.B;
             const hasCsvC = !!csvDataStore.C;
-            
+
             let moving = false;
             if (hasCsvA && !copyA) moving = true;
             if (hasCsvB && !copyB) moving = true;
             if (hasCsvC && !copyC) moving = true;
-            
+
             if (moving) {
                 const ok = confirm("Warning: You are about to MOVE files.\n\nThis will PERMANENTLY DELETE the original files from the source folder.\n\nAre you sure you want to continue?");
                 if (!ok) return;
             }
-            
+
             loading.style.display = 'block';
             resultsArea.style.display = 'block';
             stopBtn.style.display = 'inline-block';
             execBtn.disabled = true;
-            
+
             // Default to showing Log A initially
             showLogTab('A');
-            
+
             isProcessing = true;
             const loadingText2 = document.getElementById('loadingText2');
             loadingText2.textContent = "Starting..."; // Reset default text
-            
+
             const summaryData = []; // Store for CSV export
 
             try {
                 // Create category subfolders under destRootHandle
                 const categoryFolderNames = { A: 'Non-Editable', B: 'Office Use Tickable', C: 'Office Use Not Tickable' };
                 const categoryFolders = {};
-                
+
                 for (const cat of ['A', 'B', 'C']) {
                     const shouldProcess = document.getElementById(`process${cat}`).checked;
                     if (shouldProcess && csvDataStore[cat] && destRootHandle) {
                         categoryFolders[cat] = await destRootHandle.getDirectoryHandle(categoryFolderNames[cat], { create: true });
                     }
                 }
-                
+
                 // Companions folder will be created lazily when first companion is found
                 companionDestHandle = null;
-                
+
                 // Iterate over categories A, B, C
                 for (const cat of ['A', 'B', 'C']) {
                     if (!isProcessing) break; // Stop check outer loop
-                    
+
                     // Skip if category not selected for processing
                     const shouldProcess = document.getElementById(`process${cat}`).checked;
                     if (!shouldProcess) continue;
-                    
+
                     const data = csvDataStore[cat];
                     const targetFolder = categoryFolders[cat];
                     const isCopyOnly = document.getElementById(`copyMode${cat}`).checked;
@@ -1798,16 +1925,16 @@
                         if (pathParts.length > 0 && pathParts[0] === sourceDirHandle2.name) {
                             pathParts.shift();
                         }
-                        
+
                         pathParts.push(row.name);
 
                         let currentHandle = sourceDirHandle2;
                         let fileHandle = null;
-                        let parentHandle = sourceDirHandle2; 
+                        let parentHandle = sourceDirHandle2;
 
                         try {
                             // Traverse
-                            for(let i=0; i<pathParts.length; i++) {
+                            for (let i = 0; i < pathParts.length; i++) {
                                 const part = pathParts[i];
                                 if (i === pathParts.length - 1) {
                                     fileHandle = await currentHandle.getFileHandle(part);
@@ -1828,10 +1955,10 @@
                         try {
                             let fileData = await fileHandle.getFile();
                             let fileArrayBuffer = await fileData.arrayBuffer();
-                            
+
                             // === AUTOMATED MODIFICATION FOR CATEGORY B ===
                             const tickMode = document.querySelector('input[name="tickMode"]:checked').value;
-                            
+
                             if (cat === 'B' && tickMode !== 'retain') {
                                 try {
                                     // Load with pdf-lib
@@ -1850,7 +1977,7 @@
                                             const rect = w.getRectangle();
                                         }
                                     }
-                                    
+
                                     // BETTER STRATEGY: Top-Down Traversal (Page -> Annotations -> Fields)
                                     const lastPage = pdfDoc.getPage(pageCount - 1);
                                     const lastPageAnnots = lastPage.node.Annots();
@@ -1859,7 +1986,7 @@
                                     if (lastPageAnnots) {
                                         // Create a map of Ref -> Field for all checkboxes
                                         const refToFieldMap = new Map();
-                                        
+
                                         for (const field of checkboxes) {
                                             if (field.ref) refToFieldMap.set(field.ref.toString(), field);
                                             const widgets = field.acroField.getWidgets();
@@ -1887,11 +2014,11 @@
                                             if (subtype !== PDFLib.PDFName.of('Widget')) continue;
 
                                             let matchedField = null;
-                                            
+
                                             if (annotStr && refToFieldMap.has(annotStr)) {
                                                 matchedField = refToFieldMap.get(annotStr);
                                             }
-                                            
+
                                             if (!matchedField) {
                                                 const parent = annotDict.get(PDFLib.PDFName.of('Parent'));
                                                 if (parent instanceof PDFLib.PDFRef && refToFieldMap.has(parent.toString())) {
@@ -1916,15 +2043,15 @@
                                         if (yDiff < 10) return a.x - b.x;
                                         return a.y - b.y;
                                     });
-                                    
+
                                     // Office Use section is at bottom (lowest Y first after sort)
                                     // Expect 6 boxes: adr(0), brg(1), cmp(2), dta(3), phn(4), oth(5)
-                                    
+
                                     if (candidates.length >= 6) {
                                         if (Math.abs(candidates[5].y - candidates[0].y) < 20) {
                                             let tickedCount = 0;
                                             let untickedCount = 0;
-                                            
+
                                             for (let i = 0; i < 6; i++) {
                                                 if (candidates[i]) {
                                                     if (selectedTickIndices.includes(i)) {
@@ -1936,7 +2063,7 @@
                                                     }
                                                 }
                                             }
-                                            
+
                                             if (tickedCount > 0 || untickedCount > 0) {
                                                 fileArrayBuffer = await pdfDoc.save();
                                                 summaryRow.Message += ` [Updated: ${tickedCount} Checked, ${untickedCount} Unchecked]`;
@@ -1947,14 +2074,14 @@
                                     } else {
                                         summaryRow.Message += ` [Warning: Found only ${candidates.length} checkboxes, expected 6+]`;
                                     }
-                                    
+
                                 } catch (pdfLibErr) {
                                     console.error(pdfLibErr);
                                     summaryRow.Message += ` [Error Ticking: ${pdfLibErr.message}]`;
                                 }
                             }
                             // === END CATEGORY B MODIFICATION ===
-                            
+
                             // === AUTOMATED REPAIR FOR CATEGORY C ===
                             const repairMode = document.getElementById('repairModeC').checked;
                             if (cat === 'C' && repairMode && repairWidgetCoords) {
@@ -1964,14 +2091,14 @@
                                     const pageCount = pdfDoc.getPageCount();
                                     const lastPage = pdfDoc.getPage(pageCount - 1);
                                     const form = pdfDoc.getForm();
-                                    
+
                                     const { width, height } = lastPage.getSize();
-                                    
+
                                     repairWidgetCoords.forEach(coord => {
                                         // Create Checkbox with appearance streams copied from template (true 1:1 copy)
                                         try {
                                             const newBox = form.createCheckBox(coord.name);
-                                            
+
                                             // Add to page with hardcoded style matching template
                                             newBox.addToPage(lastPage, {
                                                 x: coord.x,
@@ -1989,7 +2116,7 @@
                                             // summaryRow.Message += ` [Field ${coord.name} collision]`;
                                             // Actually, if we are repairing, maybe we should delete the old field first?
                                             // But usually C files are "Not Tickable" because fields are MISSING (just image) or Locked.
-                                            
+
                                             // Just in case, try getting the existing field
                                             try {
                                                 const existing = form.getField(coord.name);
@@ -2002,13 +2129,13 @@
                                                     // pdf-lib doesn't strictly have "enableReadOnly(false)" easy access on high level API always.
                                                     // But let's assume for now we are creating NEW ones because C usually means "Image Only".
                                                 }
-                                            } catch(ex) {}
+                                            } catch (ex) { }
                                         }
                                     });
-                                    
+
                                     fileArrayBuffer = await pdfDoc.save();
                                     summaryRow.Message += " [Repaired]";
-                                    
+
                                 } catch (err) {
                                     console.error(err);
                                     summaryRow.Message += ` [Repair Failed: ${err.message}]`;
@@ -2025,7 +2152,7 @@
                             try {
                                 await finalDestHandle.getFileHandle(newName);
                                 newName = newName.replace('.pdf', `_${Date.now()}.pdf`);
-                            } catch(e) {}
+                            } catch (e) { }
 
                             const newFileHandle = await finalDestHandle.getFileHandle(newName, { create: true });
                             const writable = await newFileHandle.createWritable();
@@ -2043,37 +2170,37 @@
                                 summaryRow.Status = 'Success';
                                 summaryRow.Message += ` [Copied]`;
                             }
-                            
+
                             // === COMPANION FILE PROCESSING ===
                             // Process companion files if: companion folder selected AND folder not yet processed
                             const folderPath = pathParts.slice(0, -1).join('/'); // Get folder path without filename
                             if (destRootHandle && folderPath && !processedCompanionFolders.has(folderPath)) {
                                 processedCompanionFolders.add(folderPath);
-                                
+
                                 try {
                                     const kaPattern = /^KA\d{8}.*\.pdf$/i;
                                     const companionFiles = [];
-                                    
+
                                     // List all files in the source folder
                                     for await (const entry of parentHandle.values()) {
                                         if (entry.kind === 'file' && !kaPattern.test(entry.name)) {
                                             companionFiles.push(entry);
                                         }
                                     }
-                                    
+
                                     if (companionFiles.length > 0) {
                                         // Lazily create Companions folder on first companion found
                                         if (!companionDestHandle) {
                                             companionDestHandle = await destRootHandle.getDirectoryHandle('Companions', { create: true });
                                         }
-                                        
+
                                         // Create destination subfolder
                                         const folderName = pathParts.length > 1 ? pathParts[pathParts.length - 2] : pathParts[0];
                                         const companionSubFolder = await companionDestHandle.getDirectoryHandle(folderName, { create: true });
-                                        
+
                                         for (const compFile of companionFiles) {
                                             if (!isProcessing) break;
-                                            
+
                                             const compSummaryRow = {
                                                 FileName: compFile.name,
                                                 OriginalPath: folderPath,
@@ -2082,12 +2209,12 @@
                                                 Status: 'Pending',
                                                 Message: ''
                                             };
-                                            
+
                                             try {
                                                 // Check if file exists in destination
                                                 let shouldProcess = true;
                                                 let existingHandle = null;
-                                                
+
                                                 try {
                                                     existingHandle = await companionSubFolder.getFileHandle(compFile.name);
                                                     // File exists - handle based on conflict mode
@@ -2109,16 +2236,16 @@
                                                 } catch (e) {
                                                     // File doesn't exist - proceed normally
                                                 }
-                                                
+
                                                 if (shouldProcess) {
                                                     const compFileData = await compFile.getFile();
                                                     const compBuffer = await compFileData.arrayBuffer();
-                                                    
+
                                                     const newCompHandle = await companionSubFolder.getFileHandle(compFile.name, { create: true });
                                                     const compWritable = await newCompHandle.createWritable();
                                                     await compWritable.write(compBuffer);
                                                     await compWritable.close();
-                                                    
+
                                                     if (!isCopyOnly) {
                                                         await parentHandle.removeEntry(compFile.name);
                                                         logMsg('Companion', compFile.name, folderName, "Moved", 'green', newCompHandle);
@@ -2135,7 +2262,7 @@
                                                 compSummaryRow.Status = 'Failed';
                                                 compSummaryRow.Message = 'Error: ' + compErr.message;
                                             }
-                                            
+
                                             summaryData.push(compSummaryRow);
                                         }
                                     }
@@ -2150,27 +2277,27 @@
                             summaryRow.Status = 'Failed';
                             summaryRow.Message = "Error Moving: " + e.message;
                         }
-                        
+
                         summaryData.push(summaryRow);
                     }
                 }
-                
+
                 // Generate Summary CSV (Even if stopped)
                 if (generateSummary && summaryData.length > 0) {
-                     let csvContent = "FileName,OriginalPath,Category,DestinationFolder,Status,Message\n";
-                     summaryData.forEach(row => {
-                         const escape = (val) => `"${String(val).replace(/"/g, '""')}"`;
-                         csvContent += `${escape(row.FileName)},${escape(row.OriginalPath)},${escape(row.Category)},${escape(row.DestinationFolder)},${escape(row.Status)},${escape(row.Message)}\n`;
-                     });
-                     
-                     const blob = new Blob([csvContent], { type: 'text/csv' });
-                     const url = URL.createObjectURL(blob);
-                     const a = document.createElement('a');
-                     a.href = url;
-                     a.download = `move-summary-${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.csv`;
-                     document.body.appendChild(a); 
-                     a.click();
-                     document.body.removeChild(a);
+                    let csvContent = "FileName,OriginalPath,Category,DestinationFolder,Status,Message\n";
+                    summaryData.forEach(row => {
+                        const escape = (val) => `"${String(val).replace(/"/g, '""')}"`;
+                        csvContent += `${escape(row.FileName)},${escape(row.OriginalPath)},${escape(row.Category)},${escape(row.DestinationFolder)},${escape(row.Status)},${escape(row.Message)}\n`;
+                    });
+
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `move-summary-${new Date().toISOString().slice(0, 19).replace(/[:]/g, '-')}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
                 }
 
             } finally {
@@ -2178,11 +2305,11 @@
                 stopBtn.style.display = 'none';
                 // We don't auto-enable execBtn because state might need reset or re-check, 
                 // but usually it's safe to re-enable if they want to try again.
-                execBtn.disabled = false; 
+                execBtn.disabled = false;
                 checkMoveReady(); // Re-verify state
             }
         });
-        
+
         document.getElementById('stopMoveBtn').addEventListener('click', () => {
             isProcessing = false;
             // Show stopping status in all logs? Or just UI text.
@@ -2194,16 +2321,16 @@
             const div = document.createElement('div');
             div.className = 'file-item';
             div.innerHTML = `<span>${name}</span> <span class="reason-tag">${reason || ''}</span> <span style="color:${color}">${msg}</span>`;
-            
+
             if (fileHandle) {
                 div.title = "Ctrl+Click to open moved file";
                 div.style.cursor = "pointer";
                 div.addEventListener('click', async (e) => {
                     if (!e.ctrlKey && !e.metaKey) return;
-                    
+
                     // Add visited state
                     div.classList.add('visited');
-                    
+
                     try {
                         const file = await fileHandle.getFile();
                         const url = URL.createObjectURL(file);
@@ -2215,7 +2342,7 @@
             }
 
             const container = document.getElementById(`moveList${cat}`);
-            if(container) {
+            if (container) {
                 container.appendChild(div);
                 // Update count
                 logCounts[cat]++;
@@ -2224,13 +2351,13 @@
         }
 
         // Phase 2 Tab Switching
-        window.showLogTab = function(cat) {
+        window.showLogTab = function (cat) {
             ['A', 'B', 'C', 'Companion'].forEach(c => {
                 const isMatch = (c === cat);
                 document.getElementById(`moveList${c}`).style.display = isMatch ? 'block' : 'none';
-                
+
                 const btn = document.getElementById(`logTabBtn${c}`);
-                if(isMatch) btn.classList.add('active');
+                if (isMatch) btn.classList.add('active');
                 else btn.classList.remove('active');
             });
         };
@@ -2240,7 +2367,7 @@
             window.location.reload();
         });
 
-        window.toggleRow = function(rowId) {
+        window.toggleRow = function (rowId) {
             const row = document.getElementById(rowId);
             row.classList.toggle('collapsed');
         };
@@ -2257,7 +2384,7 @@
                     `Restore this session?\n\n` +
                     `(You will need to re-select the source folder)`
                 );
-                
+
                 if (restore) {
                     // Restore allFiles (without handles)
                     allFiles = session.files.map(f => ({
@@ -2268,19 +2395,19 @@
                         handle: null,
                         parentHandle: null
                     }));
-                    
+
                     // Restore scan mode
                     if (session.scanMode) {
                         analysisScanMode = session.scanMode;
                         const radio = document.querySelector(`input[name="scanMode"][value="${session.scanMode}"]`);
                         if (radio) radio.checked = true;
                     }
-                    
+
                     // Display results
                     displayResults();
-                    
+
                     // Show message to re-select folder
-                    document.getElementById('sourcePathDisplay').textContent = 
+                    document.getElementById('sourcePathDisplay').textContent =
                         `Previous: ${session.sourceFolderName} (re-select to proceed)`;
                 } else {
                     clearSession();
@@ -2289,4 +2416,5 @@
         })();
     </script>
 </body>
+
 </html>
