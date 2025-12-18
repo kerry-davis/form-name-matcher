@@ -368,6 +368,14 @@
             <textarea id="manualPrefixes"
                 placeholder="Enter prefixes here (e.g. KA12345678), one per line..."></textarea>
 
+            <div class="or-divider">OR</div>
+
+            <div class="input-choice-header">Option 3: Search by Reference Folder</div>
+            <div class="button-container" style="margin: 0; justify-content: flex-start;">
+                <button id="selectReferenceFolder" class="button">Select Reference Folder</button>
+            </div>
+            <div id="selectedReferenceFolder"></div>
+
             <div class="or-divider">THEN</div>
 
             <div class="input-choice-header">Step 2: Select Network Folder</div>
@@ -444,18 +452,27 @@
         const selectFolder1Btn = document.getElementById('selectFolder1');
         const csvFileInput = document.getElementById('csvFileInput');
         const manualPrefixesInput = document.getElementById('manualPrefixes');
+        const selectReferenceFolderBtn = document.getElementById('selectReferenceFolder');
+        const selectedReferenceFolderDiv = document.getElementById('selectedReferenceFolder');
         const selectedFolder1Div = document.getElementById('selectedFolder1');
         const selectedCSVDiv = document.getElementById('selectedCSV');
         const submitBtn = document.getElementById('submit');
         const resetBtn = document.getElementById('reset');
         const loadingSpinner = document.getElementById('loadingSpinner');
 
-        // Clear CSV data if user starts typing manual prefixes
+        let referenceFolderHandle = null;
+
+        // Mode Switching: Clear other inputs when one is used
         manualPrefixesInput.addEventListener('input', () => {
             if (manualPrefixesInput.value.trim() !== '') {
+                // Clear CSV
                 csvData = null;
                 selectedCSVDiv.textContent = '';
-                csvFileInput.value = ''; // Reset file input
+                csvFileInput.value = '';
+                // Clear Reference Folder
+                referenceFolderHandle = null;
+                selectedReferenceFolderDiv.textContent = '';
+
                 submitBtn.textContent = 'Process Folder and Prefixes';
             } else {
                 submitBtn.textContent = 'Process Folder and CSV';
@@ -623,6 +640,30 @@
 
         selectFolder1Btn.addEventListener('click', selectFolder);
 
+        // Option 3: Select Reference Folder
+        selectReferenceFolderBtn.addEventListener('click', async () => {
+            try {
+                const handle = await window.showDirectoryPicker();
+                referenceFolderHandle = handle;
+                selectedReferenceFolderDiv.textContent = `Selected Reference Folder: ${handle.name}`;
+
+                // Clear CSV
+                csvData = null;
+                selectedCSVDiv.textContent = '';
+                csvFileInput.value = '';
+                // Clear Manual
+                manualPrefixesInput.value = '';
+
+                submitBtn.textContent = 'Process Folder and Reference Folder';
+                resetResultsUI();
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error selecting reference folder:', error);
+                    alert('An error occurred while selecting the reference folder.');
+                }
+            }
+        });
+
         // Handle CSV file selection
         csvFileInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
@@ -639,6 +680,10 @@
                 resetResultsUI();
                 // Clear manual prefixes when CSV is selected
                 manualPrefixesInput.value = '';
+                // Clear Reference Folder
+                referenceFolderHandle = null;
+                selectedReferenceFolderDiv.textContent = '';
+
                 submitBtn.textContent = 'Process Folder and CSV';
             } catch (error) {
                 console.error('Error reading CSV file:', error);
@@ -669,9 +714,11 @@
         resetBtn.addEventListener('click', () => {
             dirHandle1 = null;
             csvData = null;
+            referenceFolderHandle = null;
             selectedFolder1Div.textContent = '';
             selectedCSVDiv.textContent = '';
             manualPrefixesInput.value = '';
+            selectedReferenceFolderDiv.textContent = '';
             submitBtn.textContent = 'Process Folder and CSV';
             resetResultsUI();
             loadingSpinner.style.display = 'none'; // Ensure spinner is hidden
@@ -685,32 +732,11 @@
             const manualPrefixesRaw = manualPrefixesInput.value.trim();
             const hasCSV = !!csvData;
             const hasManual = !!manualPrefixesRaw;
+            const hasReferenceFolder = !!referenceFolderHandle;
 
-            if (!dirHandle1 || (!hasCSV && !hasManual)) {
-                alert('Please select a folder and provide either a CSV file or manual prefixes.');
+            if (!dirHandle1 || (!hasCSV && !hasManual && !hasReferenceFolder)) {
+                alert('Please select a folder and provide an input source (CSV, manual prefixes, or reference folder).');
                 return;
-            }
-
-            // If manual prefixes are provided, they always override or regenerate csvData
-            // This ensures that updates to the manual text box are picked up correctly
-            if (hasManual) {
-                const prefixes = manualPrefixesRaw.split('\n')
-                    .map(line => {
-                        const trimmedLine = line.trim();
-                        if (!trimmedLine) return null;
-
-                        // Try to extract a clean identifier (e.g. KA12345678) from the line
-                        // This handles cases like "KA12345678 - ABC Company"
-                        const identifier = extractFileIdentifier(trimmedLine);
-                        return identifier || trimmedLine; // Fallback to raw line if no prefix pattern found
-                    })
-                    .filter(p => p !== null);
-
-                csvData = prefixes.map(p => ({
-                    'Identifier': p,
-                    'Company': 'Manual Match',
-                    'Case Number': 'N/A'
-                }));
             }
 
             loadingSpinner.style.display = 'block';
@@ -718,6 +744,47 @@
             const startTime = performance.now();
 
             try {
+                // Special case: Scan Reference Folder for prefixes first
+                if (hasReferenceFolder && !hasCSV && !hasManual) {
+                    loadingSpinner.querySelector('p').textContent = 'Scanning reference folder...';
+                    const referenceFiles = await getUniqueFilesInFolder(referenceFolderHandle);
+                    const uniqueIdentifiers = new Set();
+
+                    referenceFiles.forEach(file => {
+                        if (file.normalizedIdentifier) {
+                            uniqueIdentifiers.add(file.normalizedIdentifier);
+                        }
+                    });
+
+                    csvData = Array.from(uniqueIdentifiers).map(id => ({
+                        'Identifier': id,
+                        'Company': 'Reference Folder Match',
+                        'Case Number': 'N/A'
+                    }));
+                }
+
+                // If manual prefixes are provided, they override or regenerate csvData
+                if (hasManual) {
+                    const prefixes = manualPrefixesRaw.split('\n')
+                        .map(line => {
+                            const trimmedLine = line.trim();
+                            if (!trimmedLine) return null;
+
+                            // Try to extract a clean identifier (e.g. KA12345678) from the line
+                            const identifier = extractFileIdentifier(trimmedLine);
+                            return identifier || trimmedLine; // Fallback to raw line if no prefix pattern found
+                        })
+                        .filter(p => p !== null);
+
+                    csvData = prefixes.map(p => ({
+                        'Identifier': p,
+                        'Company': 'Manual Match',
+                        'Case Number': 'N/A'
+                    }));
+                }
+
+                loadingSpinner.querySelector('p').textContent = 'Processing...';
+
                 // Compare folder contents with CSV data
                 const { matchingFiles, unmatchedFiles } = await compareFolderWithCSV(dirHandle1, csvData);
                 displayComparisonResults(matchingFiles, unmatchedFiles);
@@ -731,6 +798,7 @@
                 resetResultsUI(); // Clear potentially incomplete results on error
             } finally {
                 loadingSpinner.style.display = 'none';
+                loadingSpinner.querySelector('p').textContent = 'Processing...'; // Reset text
             }
         });
 
