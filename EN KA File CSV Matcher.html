@@ -747,43 +747,64 @@
             const startTime = performance.now();
 
             try {
-                // Special case: Scan Reference Folder for prefixes first
+                // Special case: Scan Reference Folder for prefixes AND company names
                 if (hasReferenceFolder && !hasCSV && !hasManual) {
                     loadingSpinner.querySelector('p').textContent = 'Scanning reference folder...';
                     const referenceFiles = await getUniqueFilesInFolder(referenceFolderHandle);
-                    const uniqueIdentifiers = new Set();
+
+                    // Map by identifier + company to ensure unique combinations
+                    const uniqueEntries = new Map();
 
                     referenceFiles.forEach(file => {
-                        if (file.normalizedIdentifier) {
-                            uniqueIdentifiers.add(file.normalizedIdentifier);
+                        const id = file.identifier || '';
+                        const company = file.companyName || '';
+                        if (id || company) {
+                            const key = `${id.toUpperCase()}|${company.toUpperCase()}`;
+                            if (!uniqueEntries.has(key)) {
+                                uniqueEntries.set(key, { id, company });
+                            }
                         }
                     });
 
-                    csvData = Array.from(uniqueIdentifiers).map(id => ({
-                        'Identifier': id,
-                        'Company': 'Reference Folder Match',
+                    csvData = Array.from(uniqueEntries.values()).map(entry => ({
+                        'Identifier': entry.id,
+                        'Company': entry.company || 'Reference Folder Match',
                         'Case Number': 'N/A'
                     }));
                 }
 
-                // If manual prefixes are provided, they override or regenerate csvData
+                // If manual prefixes/names are provided, they override or regenerate csvData
                 if (hasManual) {
-                    const prefixes = manualPrefixesRaw.split('\n')
+                    csvData = manualPrefixesRaw.split('\n')
                         .map(line => {
                             const trimmedLine = line.trim();
                             if (!trimmedLine) return null;
 
-                            // Try to extract a clean identifier (e.g. KA12345678) from the line
+                            // Try to extract a clean identifier (e.g. KA12345678)
                             const identifier = extractFileIdentifier(trimmedLine);
-                            return identifier || trimmedLine; // Fallback to raw line if no prefix pattern found
-                        })
-                        .filter(p => p !== null);
 
-                    csvData = prefixes.map(p => ({
-                        'Identifier': p,
-                        'Company': 'Manual Match',
-                        'Case Number': 'N/A'
-                    }));
+                            // Try to extract company name
+                            // If it's "Prefix - Company", we can get the part after " - "
+                            let company = '';
+                            if (trimmedLine.includes(' - ')) {
+                                company = trimmedLine.split(' - ').slice(1).join(' - ').trim();
+                            } else if (identifier) {
+                                // If no " - ", but we have an identifier, try to see if there's text after it
+                                const idIndex = trimmedLine.toUpperCase().indexOf(identifier.toUpperCase());
+                                if (idIndex !== -1) {
+                                    const partAfter = trimmedLine.substring(idIndex + identifier.length).trim();
+                                    // Strip leading dashes or spaces
+                                    company = partAfter.replace(/^[\s\-_]+/, '').trim();
+                                }
+                            }
+
+                            return {
+                                'Identifier': identifier || trimmedLine,
+                                'Company': company || 'Manual Match',
+                                'Case Number': 'N/A'
+                            };
+                        })
+                        .filter(row => row !== null);
                 }
 
                 loadingSpinner.querySelector('p').textContent = 'Processing...';
