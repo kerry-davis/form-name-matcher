@@ -456,6 +456,9 @@
                 csvData = null;
                 selectedCSVDiv.textContent = '';
                 csvFileInput.value = ''; // Reset file input
+                submitBtn.textContent = 'Process Folder and Prefixes';
+            } else {
+                submitBtn.textContent = 'Process Folder and CSV';
             }
         });
 
@@ -636,6 +639,7 @@
                 resetResultsUI();
                 // Clear manual prefixes when CSV is selected
                 manualPrefixesInput.value = '';
+                submitBtn.textContent = 'Process Folder and CSV';
             } catch (error) {
                 console.error('Error reading CSV file:', error);
                 alert('An error occurred while reading the CSV file.');
@@ -668,6 +672,7 @@
             selectedFolder1Div.textContent = '';
             selectedCSVDiv.textContent = '';
             manualPrefixesInput.value = '';
+            submitBtn.textContent = 'Process Folder and CSV';
             resetResultsUI();
             loadingSpinner.style.display = 'none'; // Ensure spinner is hidden
 
