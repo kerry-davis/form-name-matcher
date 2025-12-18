@@ -758,10 +758,11 @@
                     referenceFiles.forEach(file => {
                         const id = file.identifier || '';
                         const company = file.companyName || '';
+                        const fullName = file.name || '';
                         if (id || company) {
                             const key = `${id.toUpperCase()}|${company.toUpperCase()}`;
                             if (!uniqueEntries.has(key)) {
-                                uniqueEntries.set(key, { id, company });
+                                uniqueEntries.set(key, { id, company, fullName });
                             }
                         }
                     });
@@ -769,6 +770,7 @@
                     csvData = Array.from(uniqueEntries.values()).map(entry => ({
                         'Identifier': entry.id,
                         'Company': entry.company || 'Reference Folder Match',
+                        'FullText': entry.fullName,
                         'Case Number': 'N/A'
                     }));
                 }
@@ -801,6 +803,7 @@
                             return {
                                 'Identifier': identifier || trimmedLine,
                                 'Company': company || 'Manual Match',
+                                'FullText': trimmedLine,
                                 'Case Number': 'N/A'
                             };
                         })
@@ -1167,7 +1170,7 @@
                         fragment.appendChild(p);
                     } else if (file.Identifier) {
                         // Handle missing CSV rows in targeted search
-                        p.textContent = file.Identifier;
+                        p.textContent = file.FullText || file.Identifier;
                         fragment.appendChild(p);
                     }
                 }
@@ -1245,10 +1248,14 @@
                 });
             } else {
                 // Just file paths (for unmatched files) or Identifiers (for missing search terms)
-                const header = (firstItem && firstItem.Identifier) ? "Identifier\n" : "File Path\n";
+                let header = "File Path\n";
+                if (firstItem) {
+                    if (firstItem.FullText) header = "Search Term\n";
+                    else if (firstItem.Identifier) header = "Identifier\n";
+                }
                 csvContent = header;
                 filteredArray.forEach(fileObj => {
-                    const val = (typeof fileObj === 'string') ? fileObj : (fileObj.path || fileObj.Identifier || '');
+                    const val = (typeof fileObj === 'string') ? fileObj : (fileObj.path || fileObj.FullText || fileObj.Identifier || '');
                     const escapedVal = String(val).replace(/"/g, '""');
                     csvContent += `"${escapedVal}"\n`;
                 });
