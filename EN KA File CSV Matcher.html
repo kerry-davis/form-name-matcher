@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -78,8 +79,10 @@
         }
 
         .container {
-            background: var(--bg-secondary); /* Adjusted for better visibility in both modes */
-            /* backdrop-filter: blur(10px); */ /* Removed for broader compatibility if needed, can be re-added */
+            background: var(--bg-secondary);
+            /* Adjusted for better visibility in both modes */
+            /* backdrop-filter: blur(10px); */
+            /* Removed for broader compatibility if needed, can be re-added */
             border: 1px solid var(--border-color);
             border-radius: 16px;
             box-shadow: 0 10px 30px var(--shadow-color);
@@ -89,7 +92,8 @@
             margin-bottom: 20px;
         }
 
-        h1, h2 {
+        h1,
+        h2 {
             text-align: center;
             margin-bottom: 20px;
             color: var(--accent-primary);
@@ -123,7 +127,7 @@
             font-size: 1rem;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
-        
+
         label.button {
             display: inline-block;
             padding: 10px 15px;
@@ -145,18 +149,35 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
-        #selectFolder1, #submit { background-color: var(--button-primary); }
-        label[for="csvFileInput"] { background-color: var(--button-secondary); }
-        #reset { background-color: var(--button-danger); }
-        .download-btn { background-color: var(--download-button); }
-        .delete-btn { background-color: var(--button-danger); margin-left: 10px; }
-        
+        #selectFolder1,
+        #submit {
+            background-color: var(--button-primary);
+        }
+
+        label[for="csvFileInput"] {
+            background-color: var(--button-secondary);
+        }
+
+        #reset {
+            background-color: var(--button-danger);
+        }
+
+        .download-btn {
+            background-color: var(--download-button);
+        }
+
+        .delete-btn {
+            background-color: var(--button-danger);
+            margin-left: 10px;
+        }
+
         label[for="csvFileInput"]:hover {
             transform: translateY(-3px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
-        #fileList, #unmatchedFiles {
+        #fileList,
+        #unmatchedFiles {
             width: 100%;
             height: 200px;
             overflow-y: scroll;
@@ -168,24 +189,28 @@
             margin-bottom: 15px;
         }
 
-        #fileList p, #unmatchedFiles p {
+        #fileList p,
+        #unmatchedFiles p {
             margin: 0;
             padding: 5px 0;
             border-bottom: 1px solid var(--border-color);
         }
 
-        #fileList p:last-child, #unmatchedFiles p:last-child {
+        #fileList p:last-child,
+        #unmatchedFiles p:last-child {
             border-bottom: none;
         }
 
-        #selectedFolder1, #selectedCSV {
+        #selectedFolder1,
+        #selectedCSV {
             margin-top: 10px;
             font-weight: bold;
             color: var(--accent-secondary);
             padding: 10px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 5px;
-            word-wrap: break-word; /* Ensure long names wrap */
+            word-wrap: break-word;
+            /* Ensure long names wrap */
         }
 
         #loadingSpinner {
@@ -236,13 +261,71 @@
             cursor: pointer;
         }
 
+        .input-choice-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px dashed var(--border-color);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .input-choice-header {
+            font-weight: 600;
+            color: var(--accent-secondary);
+            margin-bottom: 5px;
+        }
+
+        #manualPrefixes {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .or-divider {
+            text-align: center;
+            position: relative;
+            margin: 10px 0;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .or-divider::before,
+        .or-divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: var(--border-color);
+        }
+
+        .or-divider::before {
+            left: 0;
+        }
+
+        .or-divider::after {
+            right: 0;
+        }
+
         .filter-container input[type="radio"] {
             accent-color: var(--accent-primary);
         }
 
         @media (max-width: 600px) {
             .container {
-                /* margin: 0; */ /* Removed margin 0 for better spacing */
+                /* margin: 0; */
+                /* Removed margin 0 for better spacing */
                 width: 100%;
                 padding: 20px;
             }
@@ -254,7 +337,7 @@
             .button {
                 width: 100%;
             }
-           
+
             .section-header {
                 flex-direction: column;
                 gap: 10px;
@@ -262,24 +345,41 @@
         }
     </style>
 </head>
+
 <body>
     <div class="toggle-icons">
-        <button id="darkModeToggle">🌓</button> </div>
+        <button id="darkModeToggle">🌓</button>
+    </div>
 
     <div class="container">
         <h1>EN KA File CSV Matcher - Delete version</h1>
 
-        <div class="button-container">
-            <button id="selectFolder1" class="button">Select Network Folder</button>
-            <label for="csvFileInput" class="button">Select CSV File</label>
-            <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+        <div class="input-choice-container">
+            <div class="input-choice-header">Option 1: Search by CSV</div>
+            <div class="button-container" style="margin: 0; justify-content: flex-start;">
+                <label for="csvFileInput" class="button">Select CSV File</label>
+                <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+            </div>
+            <div id="selectedCSV"></div>
+
+            <div class="or-divider">OR</div>
+
+            <div class="input-choice-header">Option 2: Search by Manual Prefixes</div>
+            <textarea id="manualPrefixes"
+                placeholder="Enter prefixes here (e.g. KA12345678), one per line..."></textarea>
+
+            <div class="or-divider">THEN</div>
+
+            <div class="input-choice-header">Step 2: Select Network Folder</div>
+            <div class="button-container" style="margin: 0; justify-content: flex-start;">
+                <button id="selectFolder1" class="button">Select Network Folder</button>
+            </div>
+            <div id="selectedFolder1"></div>
         </div>
 
-        <div id="selectedFolder1"></div>
-        <div id="selectedCSV"></div>
-
         <div class="button-container">
-            <button id="submit" class="button">Process Folder and CSV</button> <button id="reset" class="button">Reset</button>
+            <button id="submit" class="button">Process Folder and CSV</button> <button id="reset"
+                class="button">Reset</button>
         </div>
 
         <div id="loadingSpinner">
@@ -288,31 +388,32 @@
         </div>
     </div>
 
-        <div id="comparisonResultsContainer" class="container" style="display: none;">
-            <div class="section-header">
-                <h2>Matching Files</h2>
-                <div>
-                    <button id="downloadMatched" class="button download-btn">Download CSV</button>
-                    <button id="deleteMatched" class="button delete-btn">Delete Listed</button>
-                </div>
+    <div id="comparisonResultsContainer" class="container" style="display: none;">
+        <div class="section-header">
+            <h2>Matching Files</h2>
+            <div>
+                <button id="downloadMatched" class="button download-btn">Download CSV</button>
+                <button id="deleteMatched" class="button delete-btn">Delete Listed</button>
             </div>
-            <div class="filter-container" id="matchFilterControls">
-                <label>
-                    <input type="radio" name="matchFilter" value="all" checked>
-                    Show All
-                </label>
-                <label>
-                    <input type="radio" name="matchFilter" value="prefix">
-                    Prefix Differs
-                </label>
-                <label>
-                    <input type="radio" name="matchFilter" value="company">
-                    Company Differs
-                </label>
-            </div>
-            <div id="fileList"></div>
-            <p id="noMatchMessage" class="status-message" style="display: none;">No matching files found.</p>
-            <p id="matchCount" class="status-message" style="display: none;">Total matched files: <span id="count"></span></p>
+        </div>
+        <div class="filter-container" id="matchFilterControls">
+            <label>
+                <input type="radio" name="matchFilter" value="all" checked>
+                Show All
+            </label>
+            <label>
+                <input type="radio" name="matchFilter" value="prefix">
+                Prefix Differs
+            </label>
+            <label>
+                <input type="radio" name="matchFilter" value="company">
+                Company Differs
+            </label>
+        </div>
+        <div id="fileList"></div>
+        <p id="noMatchMessage" class="status-message" style="display: none;">No matching files found.</p>
+        <p id="matchCount" class="status-message" style="display: none;">Total matched files: <span id="count"></span>
+        </p>
 
         <div class="section-header">
             <h2>Unmatched Files</h2>
@@ -322,12 +423,13 @@
             </div>
         </div>
         <div id="unmatchedFiles"></div>
-        <p id="unmatchedCount" class="status-message" style="display: none;">Total unmatched files: <span id="unmatchedCountValue"></span></p>
+        <p id="unmatchedCount" class="status-message" style="display: none;">Total unmatched files: <span
+                id="unmatchedCountValue"></span></p>
     </div>
 
 
-     <div id="processingTimeContainer" class="container" style="display: none;">
-         <p id="processingTime" class="status-message">Total processing time: <span id="time"></span></p>
+    <div id="processingTimeContainer" class="container" style="display: none;">
+        <p id="processingTime" class="status-message">Total processing time: <span id="time"></span></p>
     </div>
 
 
@@ -341,6 +443,7 @@
         const darkModeToggle = document.getElementById('darkModeToggle');
         const selectFolder1Btn = document.getElementById('selectFolder1');
         const csvFileInput = document.getElementById('csvFileInput');
+        const manualPrefixesInput = document.getElementById('manualPrefixes');
         const selectedFolder1Div = document.getElementById('selectedFolder1');
         const selectedCSVDiv = document.getElementById('selectedCSV');
         const submitBtn = document.getElementById('submit');
@@ -402,7 +505,7 @@
         }
         prefersDark.addEventListener('change', (e) => {
             if (!localStorage.getItem('darkMode')) { // Only respect system change if no manual override
-                 setDarkMode(e.matches);
+                setDarkMode(e.matches);
             }
         });
 
@@ -413,10 +516,10 @@
                 const dirHandle = await window.showDirectoryPicker();
                 dirHandle1 = dirHandle;
                 selectedFolder1Div.textContent = `Selected Folder: ${dirHandle1.name}`;
-                 // Reset results when a new folder is selected
+                // Reset results when a new folder is selected
                 resetResultsUI();
             } catch (error) {
-                 // Handle errors, e.g., user cancellation
+                // Handle errors, e.g., user cancellation
                 if (error.name !== 'AbortError') {
                     console.error('Error selecting folder:', error);
                     alert('An error occurred while selecting the folder.');
@@ -430,20 +533,20 @@
             const lines = csvText.split('\n');
             const headers = lines[0].split(',').map(header => header.replace(/"/g, '').trim());
             const data = [];
-            
+
             for (let i = 1; i < lines.length; i++) {
                 if (lines[i].trim() === '') continue;
-                
+
                 const values = parseCSVLine(lines[i]);
                 const row = {};
-                
+
                 for (let j = 0; j < headers.length && j < values.length; j++) {
                     row[headers[j]] = values[j].replace(/"/g, '').trim();
                 }
-                
+
                 data.push(row);
             }
-            
+
             return data;
         }
 
@@ -452,10 +555,10 @@
             const result = [];
             let current = '';
             let inQuotes = false;
-            
+
             for (let i = 0; i < line.length; i++) {
                 const char = line[i];
-                
+
                 if (char === '"') {
                     if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
                         // Double quotes inside quoted field
@@ -472,7 +575,7 @@
                     current += char;
                 }
             }
-            
+
             result.push(current);
             return result;
         }
@@ -507,21 +610,23 @@
         }
 
         selectFolder1Btn.addEventListener('click', selectFolder);
-        
+
         // Handle CSV file selection
         csvFileInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
             if (!file) return;
-            
+
             try {
                 const contents = await file.text();
-                
+
                 // Parse CSV - assuming first field is the identifier
                 csvData = parseCSV(contents);
                 selectedCSVDiv.textContent = `Selected CSV: ${file.name}`;
-                
+
                 // Reset results when a new CSV is selected
                 resetResultsUI();
+                // Clear manual prefixes when CSV is selected
+                manualPrefixesInput.value = '';
             } catch (error) {
                 console.error('Error reading CSV file:', error);
                 alert('An error occurred while reading the CSV file.');
@@ -529,7 +634,7 @@
         });
 
         // --- Reset ---
-         function resetResultsUI() {
+        function resetResultsUI() {
             fileListDiv.innerHTML = '';
             unmatchedFilesDiv.innerHTML = '';
             noMatchMessage.style.display = 'none';
@@ -537,7 +642,7 @@
             unmatchedCountMsg.style.display = 'none';
             processingTimeContainer.style.display = 'none';
             comparisonResultsContainer.style.display = 'none'; // Hide comparison container
-           
+
             // Reset stored file arrays
             currentMatchingFiles = [];
             currentUnmatchedFiles = [];
@@ -546,25 +651,43 @@
                 input.checked = input.value === 'all';
             });
             matchFilterControls.style.display = 'none';
-         }
+        }
 
         resetBtn.addEventListener('click', () => {
             dirHandle1 = null;
             csvData = null;
             selectedFolder1Div.textContent = '';
             selectedCSVDiv.textContent = '';
+            manualPrefixesInput.value = '';
             resetResultsUI();
             loadingSpinner.style.display = 'none'; // Ensure spinner is hidden
-			
-			//Reset the CSV file into to allow re-selection of the same file
-			csvFileInput.value = '';
+
+            //Reset the CSV file into to allow re-selection of the same file
+            csvFileInput.value = '';
         });
 
         // --- Processing ---
         submitBtn.addEventListener('click', async () => {
-            if (!dirHandle1 || !csvData) {
-                alert('Please select both a folder and a CSV file first.');
+            const manualPrefixesRaw = manualPrefixesInput.value.trim();
+            const hasCSV = !!csvData;
+            const hasManual = !!manualPrefixesRaw;
+
+            if (!dirHandle1 || (!hasCSV && !hasManual)) {
+                alert('Please select a folder and provide either a CSV file or manual prefixes.');
                 return;
+            }
+
+            // If manual prefixes are provided and no CSV, convert manual to synthetic CSV
+            if (hasManual && !hasCSV) {
+                const prefixes = manualPrefixesRaw.split('\n')
+                    .map(p => p.trim())
+                    .filter(p => p !== '');
+
+                csvData = prefixes.map(p => ({
+                    'Identifier': p,
+                    'Company': 'Manual Match',
+                    'Case Number': 'N/A'
+                }));
             }
 
             loadingSpinner.style.display = 'block';
@@ -686,7 +809,7 @@
         // Helper to get file metadata (identifier + company) from a folder
         async function getUniqueFilesInFolder(dirHandle) {
             const files = [];
-            const queue = [{handle: dirHandle, path: dirHandle.name}]; // Use a queue for iterative traversal with path tracking
+            const queue = [{ handle: dirHandle, path: dirHandle.name }]; // Use a queue for iterative traversal with path tracking
             const MAX_CONCURRENT_DIRS = 8;
 
             async function processDirectory(handle, currentPath) {
@@ -744,7 +867,7 @@
 
             while (queue.length > 0) {
                 const batch = queue.splice(0, MAX_CONCURRENT_DIRS);
-                await Promise.all(batch.map(({handle, path}) => processDirectory(handle, path)));
+                await Promise.all(batch.map(({ handle, path }) => processDirectory(handle, path)));
             }
 
             return files;
@@ -759,7 +882,7 @@
             // Store for CSV export
             currentMatchingFiles = matchingFiles;
             currentUnmatchedFiles = unmatchedFiles;
-           
+
             renderMatchingFiles();
             displayFiles(unmatchedFiles, 'unmatchedFiles');
 
@@ -860,7 +983,7 @@
             for (const file of filesToRender) {
                 if (file) {
                     const p = document.createElement('p');
-                    
+
                     // Handle both string paths (for unmatched files) and objects (for matched files)
                     if (typeof file === 'string') {
                         // Unmatched files are just strings
@@ -918,7 +1041,7 @@
         }
 
         // --- CSV Export Functions ---
-       
+
         // Helper function to convert array of file paths to CSV format
         function filterMatchingFiles(fileArray, filterOption) {
             if (!fileArray || filterOption === 'all') {
@@ -946,7 +1069,7 @@
             const firstItem = filteredArray[0];
             const hasMatchMetadata = typeof firstItem === 'object' && firstItem !== null && ('matchSource' in firstItem || 'fileIdentifier' in firstItem);
             const hasSecondField = typeof firstItem === 'object' && firstItem !== null && 'secondField' in firstItem;
-            
+
             let csvContent;
             if (hasMatchMetadata) {
                 csvContent = "File Path,Case Number,Match Source,File Prefix,CSV Prefix,File Company,CSV Company,Prefix Matches,Company Matches\n";
@@ -984,44 +1107,44 @@
                     csvContent += `"${escapedPath}"\n`;
                 });
             }
-           
+
             return csvContent;
         }
-       
+
         // Function to trigger download of CSV file
         function downloadCSV(csvContent, filename) {
             // Create a Blob with the CSV content
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-           
+
             // Create a download link
             const link = document.createElement('a');
-           
+
             // Create a URL for the Blob
             const url = URL.createObjectURL(blob);
-           
+
             // Set link properties
             link.setAttribute('href', url);
             link.setAttribute('download', filename);
             link.style.visibility = 'hidden';
-           
+
             // Add link to document, click it, and remove it
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-           
+
             // Clean up the URL object
             setTimeout(() => {
                 URL.revokeObjectURL(url);
             }, 100);
         }
-       
+
         // Event listeners for download buttons
         downloadMatchedBtn.addEventListener('click', () => {
             if (currentMatchingFiles.length === 0) {
                 alert('No matching files to download.');
                 return;
             }
-           
+
             const csvContent = convertToCSV(currentMatchingFiles, currentMatchFilter);
             if (!csvContent) {
                 alert('No matching files to download for the selected filter.');
@@ -1030,20 +1153,20 @@
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             downloadCSV(csvContent, `matched-files-${timestamp}.csv`);
         });
-       
+
         downloadUnmatchedBtn.addEventListener('click', () => {
             if (currentUnmatchedFiles.length === 0) {
                 alert('No unmatched files to download.');
                 return;
             }
-           
+
             const csvContent = convertToCSV(currentUnmatchedFiles);
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             downloadCSV(csvContent, `unmatched-files-${timestamp}.csv`);
         });
 
         // --- Deletion Logic ---
-        
+
         async function deleteFiles(filesToDelete) {
             if (!filesToDelete || filesToDelete.length === 0) {
                 alert('No files to delete.');
@@ -1100,36 +1223,37 @@
         }
 
         deleteMatchedBtn.addEventListener('click', async () => {
-             const filesToDelete = filterMatchingFiles(currentMatchingFiles, currentMatchFilter);
-             if (filesToDelete.length === 0) {
-                 alert('No matching files to delete for the selected filter.');
-                 return;
-             }
-             
-             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
-                 alert('Permission to delete files was denied.');
-                 return;
-             }
-             
-             await deleteFiles(filesToDelete);
+            const filesToDelete = filterMatchingFiles(currentMatchingFiles, currentMatchFilter);
+            if (filesToDelete.length === 0) {
+                alert('No matching files to delete for the selected filter.');
+                return;
+            }
+
+            if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
+                alert('Permission to delete files was denied.');
+                return;
+            }
+
+            await deleteFiles(filesToDelete);
         });
 
         deleteUnmatchedBtn.addEventListener('click', async () => {
-             const filesToDelete = currentUnmatchedFiles;
-             if (filesToDelete.length === 0) {
-                 alert('No unmatched files to delete.');
-                 return;
-             }
+            const filesToDelete = currentUnmatchedFiles;
+            if (filesToDelete.length === 0) {
+                alert('No unmatched files to delete.');
+                return;
+            }
 
-             if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
-                 alert('Permission to delete files was denied.');
-                 return;
-             }
+            if (dirHandle1 && !(await ensureWritePermission(dirHandle1))) {
+                alert('Permission to delete files was denied.');
+                return;
+            }
 
-             await deleteFiles(filesToDelete);
+            await deleteFiles(filesToDelete);
         });
-       
+
 
     </script>
 </body>
+
 </html>
