@@ -450,6 +450,15 @@
         const resetBtn = document.getElementById('reset');
         const loadingSpinner = document.getElementById('loadingSpinner');
 
+        // Clear CSV data if user starts typing manual prefixes
+        manualPrefixesInput.addEventListener('input', () => {
+            if (manualPrefixesInput.value.trim() !== '') {
+                csvData = null;
+                selectedCSVDiv.textContent = '';
+                csvFileInput.value = ''; // Reset file input
+            }
+        });
+
         // Comparison Results Elements
         const comparisonResultsContainer = document.getElementById('comparisonResultsContainer');
         const fileListDiv = document.getElementById('fileList');
@@ -677,8 +686,9 @@
                 return;
             }
 
-            // If manual prefixes are provided and no CSV, convert manual to synthetic CSV
-            if (hasManual && !hasCSV) {
+            // If manual prefixes are provided, they always override or regenerate csvData
+            // This ensures that updates to the manual text box are picked up correctly
+            if (hasManual) {
                 const prefixes = manualPrefixesRaw.split('\n')
                     .map(p => p.trim())
                     .filter(p => p !== '');
