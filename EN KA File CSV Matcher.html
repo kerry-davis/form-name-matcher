@@ -425,15 +425,15 @@
         </p>
 
         <div class="section-header">
-            <h2>Unmatched Files</h2>
+            <h2 id="unmatchedHeader">Unmatched Files</h2>
             <div>
                 <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
                 <button id="deleteUnmatched" class="button delete-btn">Delete All Unmatched</button>
             </div>
         </div>
         <div id="unmatchedFiles"></div>
-        <p id="unmatchedCount" class="status-message" style="display: none;">Total unmatched files: <span
-                id="unmatchedCountValue"></span></p>
+        <p id="unmatchedCount" class="status-message" style="display: none;"><span id="unmatchedCountLabel">Total
+                unmatched files</span>: <span id="unmatchedCountValue"></span></p>
     </div>
 
 
@@ -488,8 +488,10 @@
         const matchCountSpan = document.getElementById('count');
         const matchFilterControls = document.getElementById('matchFilterControls');
         const matchFilterInputs = document.querySelectorAll('input[name="matchFilter"]');
+        const unmatchedHeader = document.getElementById('unmatchedHeader');
         const unmatchedFilesDiv = document.getElementById('unmatchedFiles');
         const unmatchedCountMsg = document.getElementById('unmatchedCount');
+        const unmatchedCountLabel = document.getElementById('unmatchedCountLabel');
         const unmatchedCountSpan = document.getElementById('unmatchedCountValue');
 
 
@@ -787,8 +789,11 @@
                 loadingSpinner.querySelector('p').textContent = 'Processing...';
 
                 // Compare folder contents with CSV data
-                const { matchingFiles, unmatchedFiles } = await compareFolderWithCSV(dirHandle1, csvData);
-                displayComparisonResults(matchingFiles, unmatchedFiles);
+                const { matchingFiles, unmatchedFiles, missingCSVRows } = await compareFolderWithCSV(dirHandle1, csvData);
+
+                // Determine if we are in Targeted Search mode (Manual or Reference Folder)
+                const isTargetedSearch = hasManual || hasReferenceFolder;
+                displayComparisonResults(matchingFiles, unmatchedFiles, missingCSVRows, isTargetedSearch);
 
                 const endTime = performance.now();
                 displayProcessingTime(startTime, endTime);
@@ -846,26 +851,31 @@
 
             const matchingFiles = [];
             const unmatchedFiles = [];
+            const matchedCSVIndices = new Set();
 
             for (const file of folderFiles) {
-                let matchedRow = null;
+                let matchedRowInfo = null;
                 let matchSource = '';
                 const normalizedFileCompany = file.normalizedCompany || '';
 
                 if (file.normalizedIdentifier && csvIdentifierMap.has(file.normalizedIdentifier)) {
-                    matchedRow = csvIdentifierMap.get(file.normalizedIdentifier);
+                    matchedRowInfo = csvIdentifierMap.get(file.normalizedIdentifier);
                     matchSource = 'identifier';
                 } else if (normalizedFileCompany) {
                     const companyMatches = csvCompanyMap.get(normalizedFileCompany);
                     if (companyMatches && companyMatches.length > 0) {
-                        matchedRow = companyMatches[0];
+                        matchedRowInfo = companyMatches[0];
                         matchSource = 'company';
                     }
                 }
 
-                if (matchedRow) {
-                    const normalizedCsvIdentifier = matchedRow.normalizedId;
-                    const normalizedCsvCompany = matchedRow.normalizedCompany;
+                if (matchedRowInfo) {
+                    const matchedRow = matchedRowInfo.row;
+                    const rowIndex = normalizedCSVRows.indexOf(matchedRowInfo);
+                    matchedCSVIndices.add(rowIndex);
+
+                    const normalizedCsvIdentifier = matchedRowInfo.normalizedId;
+                    const normalizedCsvCompany = matchedRowInfo.normalizedCompany;
                     const normalizedFileIdentifier = file.normalizedIdentifier || '';
 
                     const identifierMismatch = normalizedCsvIdentifier !== normalizedFileIdentifier;
@@ -873,14 +883,14 @@
 
                     matchingFiles.push({
                         path: file.path,
-                        secondField: matchedRow.csvCompanyValue,
-                        caseNumber: matchedRow.csvCaseNumberValue,
+                        secondField: matchedRowInfo.csvCompanyValue,
+                        caseNumber: matchedRowInfo.csvCaseNumberValue,
                         matchSource,
                         fileIdentifier: file.identifier || '',
-                        csvIdentifier: matchedRow.csvIdentifierValue,
+                        csvIdentifier: matchedRowInfo.csvIdentifierValue,
                         fileCompany: file.companyName || '',
-                        csvCompany: matchedRow.csvCompanyValue,
-                        csvCaseNumber: matchedRow.csvCaseNumberValue,
+                        csvCompany: matchedRowInfo.csvCompanyValue,
+                        csvCaseNumber: matchedRowInfo.csvCaseNumberValue,
                         identifierMismatch,
                         companyMismatch,
                         handle: file.handle,
@@ -892,10 +902,18 @@
                 }
             }
 
+            const missingCSVRows = normalizedCSVRows
+                .filter((_, index) => !matchedCSVIndices.has(index))
+                .map(item => item.row);
+
             const filteredMatchingFiles = matchingFiles.filter(file => file && file.path && file.path.trim() !== '');
             const filteredUnmatchedFiles = unmatchedFiles.filter(file => file && file.path && file.path.trim() !== '');
 
-            return { matchingFiles: filteredMatchingFiles, unmatchedFiles: filteredUnmatchedFiles };
+            return {
+                matchingFiles: filteredMatchingFiles,
+                unmatchedFiles: filteredUnmatchedFiles,
+                missingCSVRows: missingCSVRows
+            };
         }
 
         // Helper to get file metadata (identifier + company) from a folder
@@ -968,15 +986,26 @@
 
 
         // --- UI Display Functions ---
-        function displayComparisonResults(matchingFiles, unmatchedFiles) {
+        function displayComparisonResults(matchingFiles, unmatchedFiles, missingCSVRows = [], isTargetedSearch = false) {
             comparisonResultsContainer.style.display = 'block'; // Show comparison section
 
             // Store for CSV export
             currentMatchingFiles = matchingFiles;
-            currentUnmatchedFiles = unmatchedFiles;
+
+            // In targeted search, "unmatched" means "missing search terms from your input"
+            // In CSV mode, "unmatched" means "files in folder that are NOT in the CSV"
+            if (isTargetedSearch) {
+                currentUnmatchedFiles = missingCSVRows;
+                unmatchedHeader.textContent = 'Missing Search Terms';
+                unmatchedCountLabel.textContent = 'Total missing terms';
+            } else {
+                currentUnmatchedFiles = unmatchedFiles;
+                unmatchedHeader.textContent = 'Unmatched Files';
+                unmatchedCountLabel.textContent = 'Total unmatched files';
+            }
 
             renderMatchingFiles();
-            displayFiles(unmatchedFiles, 'unmatchedFiles');
+            displayFiles(currentUnmatchedFiles, 'unmatchedFiles');
 
             // Update counts and messages for comparison results
             if (matchingFiles.length > 0) {
@@ -987,8 +1016,8 @@
                 matchCountMsg.style.display = 'none';
             }
 
-            if (unmatchedFiles.length > 0) {
-                unmatchedCountSpan.textContent = unmatchedFiles.length;
+            if (currentUnmatchedFiles.length > 0) {
+                unmatchedCountSpan.textContent = currentUnmatchedFiles.length;
                 unmatchedCountMsg.style.display = 'block';
             } else {
                 unmatchedCountMsg.style.display = 'none';
@@ -1115,6 +1144,10 @@
 
                         p.textContent = text;
                         fragment.appendChild(p);
+                    } else if (file.Identifier) {
+                        // Handle missing CSV rows in targeted search
+                        p.textContent = file.Identifier;
+                        fragment.appendChild(p);
                     }
                 }
             }
@@ -1190,13 +1223,13 @@
                     csvContent += `"${escapedPath}","${escapedCaseNumber}"\n`;
                 });
             } else {
-                // Just file paths (for unmatched files)
-                csvContent = "File Path\n";
+                // Just file paths (for unmatched files) or Identifiers (for missing search terms)
+                const header = (firstItem && firstItem.Identifier) ? "Identifier\n" : "File Path\n";
+                csvContent = header;
                 filteredArray.forEach(fileObj => {
-                    // Escape quotes and wrap in quotes to handle commas in paths
-                    const path = (typeof fileObj === 'string') ? fileObj : (fileObj.path || '');
-                    const escapedPath = path.replace(/"/g, '""');
-                    csvContent += `"${escapedPath}"\n`;
+                    const val = (typeof fileObj === 'string') ? fileObj : (fileObj.path || fileObj.Identifier || '');
+                    const escapedVal = String(val).replace(/"/g, '""');
+                    csvContent += `"${escapedVal}"\n`;
                 });
             }
 
