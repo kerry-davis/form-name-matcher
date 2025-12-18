@@ -695,8 +695,16 @@
             // This ensures that updates to the manual text box are picked up correctly
             if (hasManual) {
                 const prefixes = manualPrefixesRaw.split('\n')
-                    .map(p => p.trim())
-                    .filter(p => p !== '');
+                    .map(line => {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) return null;
+
+                        // Try to extract a clean identifier (e.g. KA12345678) from the line
+                        // This handles cases like "KA12345678 - ABC Company"
+                        const identifier = extractFileIdentifier(trimmedLine);
+                        return identifier || trimmedLine; // Fallback to raw line if no prefix pattern found
+                    })
+                    .filter(p => p !== null);
 
                 csvData = prefixes.map(p => ({
                     'Identifier': p,
