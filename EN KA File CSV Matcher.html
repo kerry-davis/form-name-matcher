@@ -349,7 +349,7 @@
 
 <body>
     <div class="toggle-icons">
-        <button id="darkModeToggle">🌓</button>
+        <button id="darkModeToggle" aria-label="Toggle dark mode">🌓</button>
     </div>
 
     <div class="container">
@@ -373,7 +373,8 @@
 
             <div class="input-choice-header">Option 3: Search by Reference Folder</div>
             <div class="button-container" style="margin: 0; justify-content: flex-start;">
-                <button id="selectReferenceFolder" class="button">Select Reference Folder</button>
+                <button id="selectReferenceFolder" class="button"
+                    aria-label="Select reference folder for matching">Select Reference Folder</button>
             </div>
             <div id="selectedReferenceFolder"></div>
 
@@ -381,7 +382,8 @@
 
             <div class="input-choice-header">Step 2: Select Network Folder</div>
             <div class="button-container" style="margin: 0; justify-content: flex-start;">
-                <button id="selectFolder1" class="button">Select Network Folder</button>
+                <button id="selectFolder1" class="button" aria-label="Select network folder to search">Select Network
+                    Folder</button>
             </div>
             <div id="selectedFolder1"></div>
         </div>
@@ -401,8 +403,10 @@
         <div class="section-header">
             <h2>Matching Files</h2>
             <div>
-                <button id="downloadMatched" class="button download-btn">Download CSV</button>
-                <button id="deleteMatched" class="button delete-btn">Delete Listed</button>
+                <button id="downloadMatched" class="button download-btn"
+                    aria-label="Download matched files as CSV">Download CSV</button>
+                <button id="deleteMatched" class="button delete-btn" aria-label="Delete all listed matched files">Delete
+                    Listed</button>
             </div>
         </div>
         <div class="filter-container" id="matchFilterControls">
@@ -427,8 +431,10 @@
         <div class="section-header">
             <h2 id="unmatchedHeader">Unmatched Files</h2>
             <div>
-                <button id="downloadUnmatched" class="button download-btn">Download CSV</button>
-                <button id="deleteUnmatched" class="button delete-btn">Delete All Unmatched</button>
+                <button id="downloadUnmatched" class="button download-btn"
+                    aria-label="Download unmatched files as CSV">Download CSV</button>
+                <button id="deleteUnmatched" class="button delete-btn" aria-label="Delete all unmatched files">Delete
+                    All Unmatched</button>
             </div>
         </div>
         <div id="unmatchedFiles"></div>
@@ -443,10 +449,19 @@
 
 
     <script>
+        // Constants for magic strings
+        const MATCH_LABELS = {
+            MANUAL: 'Manual Match',
+            REFERENCE_FOLDER: 'Reference Folder Match',
+            NOT_AVAILABLE: 'N/A'
+        };
+
         let dirHandle1, csvData;
         // Arrays to store the current results for CSV export
         let currentMatchingFiles = [];
         let currentUnmatchedFiles = [];
+        // Track blob URLs for cleanup
+        let pendingBlobURLs = [];
 
         // --- UI Elements ---
         const darkModeToggle = document.getElementById('darkModeToggle');
@@ -769,9 +784,9 @@
 
                     csvData = Array.from(uniqueEntries.values()).map(entry => ({
                         'Identifier': entry.id,
-                        'Company': entry.company || 'Reference Folder Match',
+                        'Company': entry.company || MATCH_LABELS.REFERENCE_FOLDER,
                         'FullText': entry.fullName,
-                        'Case Number': 'N/A'
+                        'Case Number': MATCH_LABELS.NOT_AVAILABLE
                     }));
                 }
 
@@ -802,9 +817,9 @@
 
                             return {
                                 'Identifier': identifier || trimmedLine,
-                                'Company': company || 'Manual Match',
+                                'Company': company || MATCH_LABELS.MANUAL,
                                 'FullText': trimmedLine,
-                                'Case Number': 'N/A'
+                                'Case Number': MATCH_LABELS.NOT_AVAILABLE
                             };
                         })
                         .filter(row => row !== null);
@@ -1134,7 +1149,7 @@
                         // Unmatched files are just strings
                         if (file.trim() !== '') {
                             p.textContent = file;
-                            listElement.appendChild(p);
+                            fragment.appendChild(p);
                         }
                     } else if (file.path && file.path.trim() !== '') {
                         const infoSegments = [];
@@ -1266,6 +1281,9 @@
 
         // Function to trigger download of CSV file
         function downloadCSV(csvContent, filename) {
+            // Clean up any pending blob URLs first
+            cleanupBlobURLs();
+
             // Create a Blob with the CSV content
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
@@ -1274,6 +1292,7 @@
 
             // Create a URL for the Blob
             const url = URL.createObjectURL(blob);
+            pendingBlobURLs.push(url);
 
             // Set link properties
             link.setAttribute('href', url);
@@ -1285,10 +1304,22 @@
             link.click();
             document.body.removeChild(link);
 
-            // Clean up the URL object
+            // Clean up the URL object after a delay
             setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 100);
+                cleanupBlobURLs();
+            }, 1000);
+        }
+
+        // Clean up tracked blob URLs
+        function cleanupBlobURLs() {
+            while (pendingBlobURLs.length > 0) {
+                const url = pendingBlobURLs.pop();
+                try {
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    console.warn('Failed to revoke blob URL:', e);
+                }
+            }
         }
 
         // Event listeners for download buttons
@@ -1320,6 +1351,16 @@
 
         // --- Deletion Logic ---
 
+        // Helper to toggle delete buttons enabled/disabled state
+        function setDeleteButtonsEnabled(enabled) {
+            deleteMatchedBtn.disabled = !enabled;
+            deleteUnmatchedBtn.disabled = !enabled;
+            deleteMatchedBtn.style.opacity = enabled ? '1' : '0.5';
+            deleteUnmatchedBtn.style.opacity = enabled ? '1' : '0.5';
+            deleteMatchedBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+            deleteUnmatchedBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        }
+
         async function deleteFiles(filesToDelete) {
             if (!filesToDelete || filesToDelete.length === 0) {
                 alert('No files to delete.');
@@ -1332,6 +1373,8 @@
             let deletedCount = 0;
             let errorCount = 0;
 
+            // Disable delete buttons during operation
+            setDeleteButtonsEnabled(false);
             loadingSpinner.style.display = 'block';
             const originalText = loadingSpinner.querySelector('p').textContent;
             loadingSpinner.querySelector('p').textContent = 'Deleting files...';
@@ -1354,6 +1397,8 @@
             } finally {
                 loadingSpinner.querySelector('p').textContent = originalText;
                 loadingSpinner.style.display = 'none';
+                // Re-enable delete buttons
+                setDeleteButtonsEnabled(true);
             }
 
             alert(`Deleted ${deletedCount} files.${errorCount > 0 ? ` Failed to delete ${errorCount} files.` : ''}`);
@@ -1365,14 +1410,19 @@
         }
 
         async function ensureWritePermission(handle) {
-            const options = { mode: 'readwrite' };
-            if ((await handle.queryPermission(options)) === 'granted') {
-                return true;
+            try {
+                const options = { mode: 'readwrite' };
+                if ((await handle.queryPermission(options)) === 'granted') {
+                    return true;
+                }
+                if ((await handle.requestPermission(options)) === 'granted') {
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Error requesting write permission:', error);
+                return false;
             }
-            if ((await handle.requestPermission(options)) === 'granted') {
-                return true;
-            }
-            return false;
         }
 
         deleteMatchedBtn.addEventListener('click', async () => {
