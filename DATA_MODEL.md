@@ -74,7 +74,7 @@ Notes:
     - **Analysis**: System extracts widget coordinates (X, Y, W, H) and names from the template.
     - **Execution**: Injects new interactive checkboxes at the template coordinates with hardcoded styling (light blue-gray background `rgb(0.9, 0.92, 0.96)`, light gray border `rgb(0.75, 0.75, 0.75)`) to match typical form appearance.
 - **Selective Category Processing**: Each category (A, B, C) has a "Process" checkbox in Phase 2.
-    - **Default**: All categories are selected for processing.
+    - **Default**: Categories are **not** selected for processing (User must manually opt-in).
     - **Behavior**: Unchecking a category skips it entirely during execution (no files processed, no output folder created).
     - **Use Case**: Allows processing only Category C for repair testing without waiting for A and B.
 - **Folder Structure**: 
