@@ -31,8 +31,8 @@ erDiagram
   }
 
   PDF_CONTENT {
-    string filenamePattern "/^KA\d{8}.*\.pdf$/i"
-    string page1Text       "Annual Enterprise Survey"
+    string filenamePattern "/^(KA|EN)\d+.*\.pdf$/i"
+    string page1Text       "AES or BRUS"
     boolean page1Editable  "Widgets present & unlocked"
     boolean officeUseFound "Text 'Office use' on last page"
     boolean officeUseTickable "Checkboxes below 'Office use' text"
@@ -62,12 +62,13 @@ erDiagram
 Notes:
 - **Source of Truth**: The file system is the primary source. `allFiles` array is a transient snapshot.
 - **Analysis Logic**:
-    - **Category A**: Default state. Assigned if: regex fails, "Annual Enterprise Survey" missing, Page 1 has no editable widgets, or any error occurs.
+    - **Form Support**: Explicitly supports "Annual Enterprise Survey" (AES) and "Business Register Update Survey" (BRUS).
+    - **Category A**: Default state. Assigned if: regex fails, required form text missing, Page 1 has no editable widgets, or any error occurs.
     - **Category B**: Assigned if: Page 1 has editable widgets **AND** the "Office Use" section on the last page contains editable checkboxes.
     - **Category C**: Assigned if: Page 1 has editable widgets **BUT** the "Office Use" section is missing, invalid, or locked.
 - **B-Category Modification**: When moving Category B files, the system **optionally** injects checkbox states.
     - **Default**: Retains existing PDF ticks (No modification).
-    - **Override Mode**: If enabled by user, it ticks `dta` (or user selection) and unticks others based on spatial sorting of the last page's widget annotations.
+    - **Override Mode**: If enabled by user, it identifies the "Office Use" row using a robust spatial clustering algorithm (grouping widgets by Y-coordinate with 20pt tolerance). It then ticks `dta` (or user selection) and unticks others based on horizontal (X) sorting within the detected row.
 - **C-Category Repair**: When moving Category C files, the system **optionally** repairs non-editable "Office Use" sections.
     - **Input**: User provides a "Template PDF" (Category B) containing correct widgets.
     - **Analysis**: System extracts widget coordinates (X, Y, W, H) and names from the template.
@@ -159,6 +160,7 @@ Notes:
     - Phase 2 (Read/Write) uses `pdf-lib` to modify form fields (ticking boxes), inject new widgets (Repair Mode), and save the resulting binary.
 - **Tick Logic Tolerance**: The `modifyPdfForm` logic uses spatial tolerance (y-diff < 10, x-sort) to identify the "Office Use" row even if visual alignment varies slightly between files.
 - **Repair Logic**: The `repairPdfForm` logic relies on exact coordinate matching between a user-provided Template PDF and the target files. It uses masking (white rectangles) to hide non-editable artifacts.
+- **Save Optimization (Rich Text Mitigation)**: To prevent crashes while saving forms containing unsupported "Rich Text" fields (e.g., specific BRUS form text boxes), the system disables global field appearance updates during the save process (`updateFieldAppearances: false`). It instead manually triggers updates only for the checkboxes it modifies.
 
 ## 4) UI State & Persistence
 
