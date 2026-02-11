@@ -621,7 +621,7 @@
                             <h3 class="cat-a" style="border:none; margin:0;">Folder A<br><small>(Non-Editable)</small>
                             </h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="processA" disabled>
+                        <label class="copy-option"><input type="checkbox" id="processA" checked disabled>
                             Process</label>
                         <label class="copy-option"><input type="checkbox" id="copyModeA" checked disabled> Copy
                             Only</label>
@@ -649,7 +649,7 @@
                             <h3 class="cat-b" style="border:none; margin:0;">Folder B<br><small>(Office Use:
                                     tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="processB" disabled>
+                        <label class="copy-option"><input type="checkbox" id="processB" checked disabled>
                             Process</label>
                         <label class="copy-option"><input type="checkbox" id="copyModeB" checked disabled> Copy
                             Only</label>
@@ -707,7 +707,7 @@
                             <h3 class="cat-c" style="border:none; margin:0;">Folder C<br><small>(Office Use: not
                                     tickable)</small></h3>
                         </div>
-                        <label class="copy-option"><input type="checkbox" id="processC" disabled>
+                        <label class="copy-option"><input type="checkbox" id="processC" checked disabled>
                             Process</label>
                         <label class="copy-option"><input type="checkbox" id="copyModeC" checked disabled> Copy
                             Only</label>
@@ -1042,7 +1042,7 @@
         // Concurrent Scan for KA*.pdf
         async function scanForPdfsConcurrent(dirHandle, mode = 'subfolders') {
             const results = [];
-            const kaPattern = /^KA\d{8}.*\.pdf$/i;
+            const kaPattern = /^(KA|EN)\d+.*\.pdf$/i;
             const queue = [{ handle: dirHandle, path: '', depth: 0 }];
             const MAX_CONCURRENT_DIRS = 16; // Increased for better directory scanning throughput
 
@@ -1135,11 +1135,18 @@
                 // --- CHECK 1: Page 1 Analysis (Is it Editable?) ---
                 const page1 = await pdf.getPage(1);
 
-                // Optional: Check Header (to ensure it's the right form type)
+                // Optional: Check Header (to ensure it's the right form types)
                 const textContent1 = await page1.getTextContent();
                 const page1Text = textContent1.items.map(item => item.str).join(' ');
-                if (!page1Text.toLowerCase().includes("annual enterprise survey")) {
-                    return { ...res, reason: 'Non-Editable' }; // Retain A
+                const normalizedText = page1Text.toLowerCase().replace(/\s+/g, ' ');
+
+                const supportedForms = ["annual enterprise survey", "business register update survey"];
+                const isSupported = supportedForms.some(f => normalizedText.includes(f));
+
+
+
+                if (!isSupported) {
+                    return { ...res, reason: 'Unsupported Form Type / Non-Editable' }; // Retain A
                 }
 
                 const p1Anns = await page1.getAnnotations();
@@ -1173,19 +1180,36 @@
                 const lastPage = await pdf.getPage(pdf.numPages);
                 const lastPageText = await lastPage.getTextContent();
 
-                // Find "Office use" text
+                // Join all items for a robust string search
+                const lastPageFullText = lastPageText.items.map(item => item.str).join(' ');
+                const normalizedLastPageText = lastPageFullText.toLowerCase().replace(/\s+/g, ' ');
+
+
+
+                // Find index of "office use" in the joined string
+                const officeUseKeywords = ["office use", "office use:", "official use"];
+                let foundKeyword = null;
+                for (const kw of officeUseKeywords) {
+                    if (normalizedLastPageText.includes(kw)) {
+                        foundKeyword = kw;
+                        break;
+                    }
+                }
+
+                if (!foundKeyword) {
+                    return { ...res, reason: 'Missing "Office use" section label' }; // Retain A
+                }
+
+                // To get the Y-coordinate, we still need to find the specific item.
+                // We'll look for the item that contains the FIRST part of the found keyword.
+                const firstPart = foundKeyword.split(' ')[0];
                 const officeUseItem = lastPageText.items.find(item =>
-                    item.str.toLowerCase().includes("office use") ||
-                    item.str.toLowerCase().includes("office use:")
+                    item.str.toLowerCase().includes(firstPart)
                 );
 
                 if (!officeUseItem) {
-                    // If Office Use section is missing completely -> Treat as "Widgets Missing" -> Stay A
-                    // (Or arguably C, but plan says 'Widgets missing -> Do nothing (Retain A)')
-                    return { ...res, reason: 'Missing "Office use:" section' }; // Retain A
-                }
-
-                const textY = officeUseItem.transform[5];
+                    return { ...res, reason: 'Inconsistent "Office use" section' }; // Retain A
+                } const textY = officeUseItem.transform[5];
                 const anns = await lastPage.getAnnotations();
 
                 // Find checkboxes physically below the "Office use" text
@@ -1967,26 +1991,15 @@
                                     const fields = form.getFields();
                                     const pageCount = pdfDoc.getPageCount();
 
-                                    // We need to find the widgets on the LAST page to sort them spatially.
-                                    const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
-                                    const relevantBoxes = [];
-
-                                    for (const box of checkboxes) {
-                                        const widgets = box.acroField.getWidgets();
-                                        for (const w of widgets) {
-                                            const rect = w.getRectangle();
-                                        }
-                                    }
-
-                                    // BETTER STRATEGY: Top-Down Traversal (Page -> Annotations -> Fields)
+                                    // 1. Gather all CheckBox widgets on the last page
                                     const lastPage = pdfDoc.getPage(pageCount - 1);
                                     const lastPageAnnots = lastPage.node.Annots();
-                                    const candidates = [];
+                                    const allWidgets = []; // { field, x, y, name }
 
                                     if (lastPageAnnots) {
-                                        // Create a map of Ref -> Field for all checkboxes
+                                        // Map Refs to Fields
+                                        const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
                                         const refToFieldMap = new Map();
-
                                         for (const field of checkboxes) {
                                             if (field.ref) refToFieldMap.set(field.ref.toString(), field);
                                             const widgets = field.acroField.getWidgets();
@@ -1995,84 +2008,109 @@
                                             });
                                         }
 
-                                        // Traverse the page's annotations
                                         for (let i = 0; i < lastPageAnnots.size(); i++) {
-                                            const annotRef = lastPageAnnots.get(i);
-                                            let annotDict = null;
-                                            let annotStr = null;
+                                            const ref = lastPageAnnots.get(i);
+                                            const dict = pdfDoc.context.lookup(ref);
+                                            if (!(dict instanceof PDFLib.PDFDict)) continue;
 
-                                            if (annotRef instanceof PDFLib.PDFRef) {
-                                                annotStr = annotRef.toString();
-                                                annotDict = pdfDoc.context.lookup(annotRef);
-                                            } else if (annotRef instanceof PDFLib.PDFDict) {
-                                                annotDict = annotRef;
-                                            }
-
-                                            if (!annotDict) continue;
-
-                                            const subtype = annotDict.get(PDFLib.PDFName.of('Subtype'));
+                                            const subtype = dict.get(PDFLib.PDFName.of('Subtype'));
                                             if (subtype !== PDFLib.PDFName.of('Widget')) continue;
 
                                             let matchedField = null;
+                                            const refStr = (ref instanceof PDFLib.PDFRef) ? ref.toString() : null;
 
-                                            if (annotStr && refToFieldMap.has(annotStr)) {
-                                                matchedField = refToFieldMap.get(annotStr);
+                                            if (refStr && refToFieldMap.has(refStr)) {
+                                                matchedField = refToFieldMap.get(refStr);
                                             }
 
                                             if (!matchedField) {
-                                                const parent = annotDict.get(PDFLib.PDFName.of('Parent'));
+                                                const parent = dict.get(PDFLib.PDFName.of('Parent'));
                                                 if (parent instanceof PDFLib.PDFRef && refToFieldMap.has(parent.toString())) {
                                                     matchedField = refToFieldMap.get(parent.toString());
                                                 }
                                             }
 
                                             if (matchedField && matchedField instanceof PDFLib.PDFCheckBox) {
-                                                const rectArr = annotDict.get(PDFLib.PDFName.of('Rect'));
-                                                if (rectArr && rectArr instanceof PDFLib.PDFArray) {
+                                                const rectArr = dict.get(PDFLib.PDFName.of('Rect'));
+                                                if (rectArr instanceof PDFLib.PDFArray) {
                                                     const x = rectArr.get(0).asNumber();
                                                     const y = rectArr.get(1).asNumber();
-                                                    candidates.push({ field: matchedField, x, y });
+                                                    allWidgets.push({ field: matchedField, name: matchedField.getName(), x, y });
                                                 }
                                             }
                                         }
                                     }
 
-                                    // Sort: Primary Y (Bottom-up), Secondary X (Left-Right)
-                                    candidates.sort((a, b) => {
-                                        const yDiff = Math.abs(a.y - b.y);
-                                        if (yDiff < 10) return a.x - b.x;
-                                        return a.y - b.y;
-                                    });
+                                    // 2. Cluster Detection: Group widgets by Y-coordinate (tolerance: 20pt)
+                                    // First sort by Y ascending (bottom-up)
+                                    allWidgets.sort((a, b) => a.y - b.y);
 
-                                    // Office Use section is at bottom (lowest Y first after sort)
-                                    // Expect 6 boxes: adr(0), brg(1), cmp(2), dta(3), phn(4), oth(5)
+                                    const rows = [];
+                                    if (allWidgets.length > 0) {
+                                        let currentRow = [allWidgets[0]];
+                                        for (let i = 1; i < allWidgets.length; i++) {
+                                            if (Math.abs(allWidgets[i].y - currentRow[0].y) < 20) {
+                                                currentRow.push(allWidgets[i]);
+                                            } else {
+                                                rows.push(currentRow);
+                                                currentRow = [allWidgets[i]];
+                                            }
+                                        }
+                                        rows.push(currentRow);
+                                    }
 
-                                    if (candidates.length >= 6) {
-                                        if (Math.abs(candidates[5].y - candidates[0].y) < 20) {
+                                    // 3. Find the lowest row with ~6 items (the Office Use row)
+                                    let officeRow = rows.find(r => r.length === 6);
+                                    if (!officeRow) {
+                                        // Fallback: take the first row with 6+ (might be extra widgets)
+                                        officeRow = rows.find(r => r.length >= 6);
+                                    }
+
+                                    if (officeRow) {
+                                        // Sort this specific row by X (Left-to-Right)
+                                        officeRow.sort((a, b) => a.x - b.x);
+
+                                        // Deduplicate names if multiple widgets for same field
+                                        const deduplicated = [];
+                                        const seenNames = new Set();
+                                        for (const item of officeRow) {
+                                            if (!seenNames.has(item.name)) {
+                                                deduplicated.push(item);
+                                                seenNames.add(item.name);
+                                            }
+                                        }
+
+                                        if (deduplicated.length >= 6) {
                                             let tickedCount = 0;
                                             let untickedCount = 0;
 
+                                            // We take the first 6 as the target fields (adr, brg, cmp, dta, phn, oth)
                                             for (let i = 0; i < 6; i++) {
-                                                if (candidates[i]) {
-                                                    if (selectedTickIndices.includes(i)) {
-                                                        candidates[i].field.check();
-                                                        tickedCount++;
-                                                    } else if (tickMode === 'force') {
-                                                        candidates[i].field.uncheck();
-                                                        untickedCount++;
-                                                    }
+                                                const box = deduplicated[i];
+                                                if (selectedTickIndices.includes(i)) {
+                                                    box.field.check();
+                                                    tickedCount++;
+                                                } else if (tickMode === 'force') {
+                                                    box.field.uncheck();
+                                                    untickedCount++;
                                                 }
                                             }
 
                                             if (tickedCount > 0 || untickedCount > 0) {
-                                                fileArrayBuffer = await pdfDoc.save();
+                                                // Update appearances ONLY for the checkboxes we touched
+                                                // to avoid crashing on "Rich Text" text fields elsewhere in the document.
+                                                officeRow.forEach(item => {
+                                                    try { item.field.defaultUpdateAppearances(); } catch (e) { }
+                                                });
+
+                                                fileArrayBuffer = await pdfDoc.save({ updateFieldAppearances: false });
                                                 summaryRow.Message += ` [Updated: ${tickedCount} Checked, ${untickedCount} Unchecked]`;
                                             }
                                         } else {
-                                            summaryRow.Message += " [Warning: Layout mismatch, no boxes modified]";
+                                            summaryRow.Message += ` [Warning: Deduplicated row size ${deduplicated.length}, mismatch]`;
                                         }
                                     } else {
-                                        summaryRow.Message += ` [Warning: Found only ${candidates.length} checkboxes, expected 6+]`;
+                                        summaryRow.Message += ` [Warning: No group of 6+ checkboxes found (Total on page: ${allWidgets.length})]`;
                                     }
 
                                 } catch (pdfLibErr) {
@@ -2133,7 +2171,7 @@
                                         }
                                     });
 
-                                    fileArrayBuffer = await pdfDoc.save();
+                                    fileArrayBuffer = await pdfDoc.save({ updateFieldAppearances: false });
                                     summaryRow.Message += " [Repaired]";
 
                                 } catch (err) {
@@ -2178,7 +2216,7 @@
                                 processedCompanionFolders.add(folderPath);
 
                                 try {
-                                    const kaPattern = /^KA\d{8}.*\.pdf$/i;
+                                    const kaPattern = /^(KA|EN)\d+.*\.pdf$/i;
                                     const companionFiles = [];
 
                                     // List all files in the source folder
