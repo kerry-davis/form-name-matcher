@@ -180,26 +180,88 @@
         #fileList,
         #unmatchedFiles {
             width: 100%;
-            height: 200px;
+            height: 300px;
             overflow-y: scroll;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.03);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            padding: 15px;
+            padding: 5px;
             color: var(--text-primary);
             margin-bottom: 15px;
+            resize: vertical;
         }
 
-        #fileList p,
-        #unmatchedFiles p {
-            margin: 0;
-            padding: 5px 0;
+        .file-item {
+            margin: 2px;
+            padding: 8px 12px;
             border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            user-select: none;
+            font-size: 0.9rem;
+            word-break: break-all;
+            display: block;
         }
 
-        #fileList p:last-child,
-        #unmatchedFiles p:last-child {
+        .file-item:last-child {
             border-bottom: none;
+        }
+
+        .file-item:hover {
+            background: rgba(106, 90, 205, 0.08);
+            transform: translateX(4px);
+        }
+
+        .file-item.visited {
+            background: rgba(106, 90, 205, 0.12);
+            border-left: 4px solid var(--accent-primary);
+        }
+
+        #toast {
+            display: none;
+        }
+
+        #contextMenu {
+            position: fixed;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 3000;
+            min-width: 160px;
+            padding: 5px 0;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .context-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .context-item:hover {
+            background: rgba(106, 90, 205, 0.15);
+            transform: translateX(2px);
+        }
+
+        .context-item.danger {
+            color: var(--button-danger);
+            border-top: 1px solid var(--border-color);
+            margin-top: 5px;
+            padding-top: 10px;
+        }
+
+        .context-item.danger:hover {
+            background: rgba(255, 107, 107, 0.1);
         }
 
         #selectedFolder1,
@@ -448,6 +510,12 @@
     </div>
 
 
+    <div id="contextMenu">
+        <div class="context-item" id="ctxCopy">📋 Copy File</div>
+        <div class="context-item" id="ctxMove">📦 Move File</div>
+        <div class="context-item danger" id="ctxDelete">🗑️ Delete File</div>
+    </div>
+
     <script>
         // Constants for magic strings
         const MATCH_LABELS = {
@@ -455,6 +523,112 @@
             REFERENCE_FOLDER: 'Reference Folder Match',
             NOT_AVAILABLE: 'N/A'
         };
+
+        const contextMenu = document.getElementById('contextMenu');
+        let activeFileData = null;
+
+        async function getUniqueFileName(dirHandle, name) {
+            let uniqueName = name;
+            let counter = 1;
+            const dotIndex = name.lastIndexOf('.');
+            const base = dotIndex === -1 ? name : name.substring(0, dotIndex);
+            const ext = dotIndex === -1 ? '' : name.substring(dotIndex);
+
+            while (true) {
+                try {
+                    await dirHandle.getFileHandle(uniqueName);
+                    uniqueName = `${base} (${counter})${ext}`;
+                    counter++;
+                } catch (e) {
+                    return uniqueName;
+                }
+            }
+        }
+
+        async function handleFileAction(action) {
+            if (contextMenu) contextMenu.style.display = 'none';
+            if (!activeFileData) return;
+
+            if (!activeFileData.handle || !activeFileData.parentHandle) {
+                alert("Action not available for virtual records (no file handle).");
+                return;
+            }
+
+            try {
+                if (action === 'delete') {
+                    if (!confirm(`Are you sure you want to delete "${activeFileData.name}"?`)) return;
+                    await activeFileData.parentHandle.removeEntry(activeFileData.name);
+                } else {
+                    const destHandle = await window.showDirectoryPicker();
+                    const fileData = await activeFileData.handle.getFile();
+                    const buffer = await fileData.arrayBuffer();
+
+                    // Automation replaces previous manual prompt for collision
+                    const targetName = await getUniqueFileName(destHandle, activeFileData.name);
+
+                    const newFileHandle = await destHandle.getFileHandle(targetName, { create: true });
+                    const writable = await newFileHandle.createWritable();
+                    await writable.write(buffer);
+                    await writable.close();
+
+                    if (action === 'move') {
+                        await activeFileData.parentHandle.removeEntry(activeFileData.name);
+                    }
+                }
+
+                // Update UI in-place without re-scanning folder
+                if (action === 'delete' || action === 'move') {
+                    // 1. Remove from matching files if present
+                    const matchIndex = currentMatchingFiles.findIndex(f => f.path === activeFileData.path);
+                    if (matchIndex !== -1) {
+                        currentMatchingFiles.splice(matchIndex, 1);
+                        renderMatchingFiles(); // Re-renders specific list and updates count
+                    }
+
+                    // 2. Remove from unmatched files if present
+                    const unmatchedIndex = currentUnmatchedFiles.findIndex(f => (typeof f === 'string' ? f : f.path) === activeFileData.path);
+                    if (unmatchedIndex !== -1) {
+                        currentUnmatchedFiles.splice(unmatchedIndex, 1);
+                        const count = displayFiles(currentUnmatchedFiles, 'unmatchedFiles');
+
+                        // Update unmatched count display
+                        if (count > 0) {
+                            unmatchedCountSpan.textContent = count;
+                            unmatchedCountMsg.style.display = 'block';
+                        } else {
+                            unmatchedCountMsg.style.display = 'none';
+                        }
+                    }
+                } else if (action === 'copy') {
+                    alert(`Successfully copied "${activeFileData.name}" to selected folder.`);
+                }
+
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error(err);
+                    alert(`Action failed: ${err.message}`);
+                }
+            } finally {
+                activeFileData = null;
+            }
+        }
+
+        async function revealFile(file, div) {
+            if (!file) return;
+            div.classList.add('visited');
+
+            // Open file if handle exists
+            if (file.handle && file.handle.kind === 'file') {
+                try {
+                    const fileObj = await file.handle.getFile();
+                    const url = URL.createObjectURL(fileObj);
+                    pendingBlobURLs.push(url);
+                    window.open(url, '_blank');
+                } catch (err) {
+                    console.error('Error opening file:', err);
+                }
+            }
+        }
 
         let dirHandle1, csvData;
         // Arrays to store the current results for CSV export
@@ -529,6 +703,48 @@
                     renderMatchingFiles();
                 }
             });
+        });
+
+        // CTRL-Click & Right-Click handlers
+        [fileListDiv, unmatchedFilesDiv].forEach(container => {
+            container.addEventListener('click', async (e) => {
+                const item = e.target.closest('.file-item');
+                if (item && item._fileData && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    await revealFile(item._fileData, item);
+                }
+            });
+
+            container.addEventListener('contextmenu', e => {
+                const item = e.target.closest('.file-item');
+                if (item && item._fileData) {
+                    e.preventDefault();
+                    activeFileData = item._fileData;
+
+                    contextMenu.style.display = 'block';
+                    const menuWidth = contextMenu.offsetWidth || 160;
+                    const menuHeight = contextMenu.offsetHeight || 120;
+
+                    let x = e.clientX;
+                    let y = e.clientY;
+
+                    if (x + menuWidth > window.innerWidth) x -= menuWidth;
+                    if (y + menuHeight > window.innerHeight) y -= menuHeight;
+
+                    contextMenu.style.left = x + 'px';
+                    contextMenu.style.top = y + 'px';
+                }
+            });
+        });
+
+        document.getElementById('ctxCopy').addEventListener('click', () => handleFileAction('copy'));
+        document.getElementById('ctxMove').addEventListener('click', () => handleFileAction('move'));
+        document.getElementById('ctxDelete').addEventListener('click', () => handleFileAction('delete'));
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#contextMenu')) {
+                contextMenu.style.display = 'none';
+            }
         });
 
         // --- Dark Mode ---
@@ -858,7 +1074,7 @@
             const csvIdentifierMap = new Map();
             const csvCompanyMap = new Map();
 
-            const normalizedCSVRows = csvData.map(row => {
+            const normalizedCSVRows = csvData.map((row, index) => {
                 const csvIdentifierValue = identifierField ? (row[identifierField] || '').trim() : '';
                 const csvCompanyValue = companyField ? (row[companyField] || '').trim() : '';
                 const csvCaseNumberValue = caseNumberField ? (row[caseNumberField] || '').trim() : '';
@@ -871,7 +1087,8 @@
                     csvCompanyValue,
                     csvCaseNumberValue,
                     normalizedId,
-                    normalizedCompany
+                    normalizedCompany,
+                    index // Store original index for efficient lookup
                 };
             });
 
@@ -910,7 +1127,7 @@
 
                 if (matchedRowInfo) {
                     const matchedRow = matchedRowInfo.row;
-                    const rowIndex = normalizedCSVRows.indexOf(matchedRowInfo);
+                    const rowIndex = matchedRowInfo.index; // Direct index access
                     matchedCSVIndices.add(rowIndex);
 
                     const normalizedCsvIdentifier = matchedRowInfo.normalizedId;
@@ -958,59 +1175,45 @@
         // Helper to get file metadata (identifier + company) from a folder
         async function getUniqueFilesInFolder(dirHandle) {
             const files = [];
-            const queue = [{ handle: dirHandle, path: dirHandle.name }]; // Use a queue for iterative traversal with path tracking
-            const MAX_CONCURRENT_DIRS = 8;
+            const queue = [{ handle: dirHandle, path: dirHandle.name }];
+            const MAX_CONCURRENT_DIRS = 32; // Significantly increased concurrency for faster I/O
 
             async function processDirectory(handle, currentPath) {
                 try {
-                    const subdirectories = [];
+                    const subdirs = [];
                     for await (const entry of handle.values()) {
                         if (entry.kind === 'file') {
-                            const identifier = extractFileIdentifier(entry.name);
-                            const normalizedIdentifier = identifier ? normalizeIdentifier(identifier) : '';
-                            const companyName = extractCompanyNameFromFilename(entry.name);
-                            const normalizedCompany = companyName ? normalizeCompanyName(companyName) : '';
+                            const fileName = entry.name;
+                            const identifier = extractFileIdentifier(fileName);
+                            const companyName = extractCompanyNameFromFilename(fileName);
+
                             if (identifier || companyName) {
-                                const fullPath = `${currentPath}/${entry.name}`; // Create full path
                                 files.push({
                                     identifier,
-                                    normalizedIdentifier,
+                                    normalizedIdentifier: identifier ? normalizeIdentifier(identifier) : '',
                                     companyName,
-                                    normalizedCompany,
-                                    path: fullPath,
+                                    normalizedCompany: companyName ? normalizeCompanyName(companyName) : '',
+                                    path: `${currentPath}/${fileName}`,
                                     handle: entry,
                                     parentHandle: handle,
-                                    name: entry.name
+                                    name: fileName
                                 });
                             }
                         } else if (entry.kind === 'directory') {
-                            subdirectories.push(entry);
+                            subdirs.push(entry);
                         }
                     }
 
-                    if (subdirectories.length > 0) {
-                        const permissionChecks = await Promise.all(subdirectories.map(async entry => {
-                            try {
-                                const permission = await entry.queryPermission({ mode: 'read' });
-                                return permission === 'granted' ? entry : null;
-                            } catch (error) {
-                                console.warn(`Skipping directory (permission error): ${entry.name}`);
-                                return null;
-                            }
-                        }));
-
-                        permissionChecks.forEach(entry => {
-                            if (entry) {
-                                queue.push({
-                                    handle: entry,
-                                    path: `${currentPath}/${entry.name}`
-                                });
-                            }
+                    // Directly queue subdirectories without redundant permission checks
+                    // Errors will be caught in the next processDirectory cycle
+                    for (const entry of subdirs) {
+                        queue.push({
+                            handle: entry,
+                            path: `${currentPath}/${entry.name}`
                         });
                     }
                 } catch (e) {
-                    // Permissions issue might throw here too on some systems/access levels
-                    console.error(`Error accessing contents of directory ${handle.name}: ${e}`);
+                    console.error(`Error accessing directory ${handle.name}:`, e);
                 }
             }
 
@@ -1093,8 +1296,8 @@
             listElement.innerHTML = ''; // Clear previous content
 
             if (!files || files.length === 0) {
-                const p = document.createElement('p');
-                // Customize message based on list type
+                const p = document.createElement('div');
+                p.className = 'status-message';
                 if (elementId === 'fileList') p.textContent = 'No matching files found.';
                 else if (elementId === 'unmatchedFiles') p.textContent = 'No unmatched files found.';
                 else p.textContent = 'No files to display.';
@@ -1116,7 +1319,8 @@
             }
 
             if (filesToRender.length === 0) {
-                const p = document.createElement('p');
+                const p = document.createElement('div');
+                p.className = 'status-message';
                 if (elementId === 'fileList') {
                     p.textContent = 'No matching files found for the selected filter.';
                 } else if (elementId === 'unmatchedFiles') {
@@ -1132,7 +1336,6 @@
 
             // Sort files alphabetically for consistent display
             filesToRender.sort((a, b) => {
-                // Handle both string paths and objects with path property
                 const pathA = typeof a === 'string' ? a : a.path || '';
                 const pathB = typeof b === 'string' ? b : b.path || '';
                 return pathA.localeCompare(pathB);
@@ -1142,14 +1345,15 @@
 
             for (const file of filesToRender) {
                 if (file) {
-                    const p = document.createElement('p');
+                    const div = document.createElement('div');
+                    div.className = 'file-item';
+                    div._fileData = file;
+                    div.title = "CTRL-click to open file and copy path for Explorer";
 
-                    // Handle both string paths (for unmatched files) and objects (for matched files)
                     if (typeof file === 'string') {
-                        // Unmatched files are just strings
                         if (file.trim() !== '') {
-                            p.textContent = file;
-                            fragment.appendChild(p);
+                            div.textContent = file;
+                            fragment.appendChild(div);
                         }
                     } else if (file.path && file.path.trim() !== '') {
                         const infoSegments = [];
@@ -1181,12 +1385,11 @@
                             text += ` ⚠ ${mismatchSegments.join('; ')}`;
                         }
 
-                        p.textContent = text;
-                        fragment.appendChild(p);
+                        div.textContent = text;
+                        fragment.appendChild(div);
                     } else if (file.Identifier) {
-                        // Handle missing CSV rows in targeted search
-                        p.textContent = file.FullText || file.Identifier;
-                        fragment.appendChild(p);
+                        div.textContent = file.FullText || file.Identifier;
+                        fragment.appendChild(div);
                     }
                 }
             }
