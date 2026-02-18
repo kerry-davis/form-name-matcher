@@ -68,7 +68,12 @@ Notes:
     - **Category C**: Assigned if: Page 1 has editable widgets **BUT** the "Office Use" section is missing, invalid, or locked.
 - **B-Category Modification**: When moving Category B files, the system **optionally** injects checkbox states.
     - **Default**: Retains existing PDF ticks (No modification).
-    - **Override Mode**: If enabled by user, it identifies the "Office Use" row using a robust spatial clustering algorithm (grouping widgets by Y-coordinate with 20pt tolerance). It then ticks `dta` (or user selection) and unticks others based on horizontal (X) sorting within the detected row.
+    - **Override Mode (Force/Add)**: If enabled by user, it identifies matching rows using a spatial clustering algorithm (grouping widgets by Y-coordinate with 20pt tolerance). It then ticks selected indices (default: `dta`) and optionally unticks others based on horizontal (X) sorting within each detected row.
+    - **Auto Mode**: Scans three potential trigger locations on a per-file basis:
+        1. **Page 4 (Index 3)**: Checks the "Errors / omissions" column (Column 7). If text is found, it triggers a **`dta`** tick (Index 3) on the last page.
+        2. **Last Page**: Checks contact fields (`ContactFirstName`, `ContactFamilyName`, `ContactPosition`, `ContactEmail`, `ContactPhone`, `ContactOtherPh`). If text is found, it triggers an **`adr`** tick (Index 0) on the last page.
+        3. **First Page**: Checks address fields (`AddAttn`, `AddLegalName`, `AddStreet1`, `AddStreet2`, `AddSuburb`, `AddCity`, `AddPostcode`). If text is found, it also triggers an **`adr`** tick (Index 0) on the last page.
+        - **Execution**: Ticks are applied ONLY to the **Last Page** office-use checkboxes. If multiple triggers are met, all corresponding boxes are ticked. If no text is found in any location, original states are retained.
 - **C-Category Repair**: When moving Category C files, the system **optionally** repairs non-editable "Office Use" sections.
     - **Input**: User provides a "Template PDF" (Category B) containing correct widgets.
     - **Analysis**: System extracts widget coordinates (X, Y, W, H) and names from the template.

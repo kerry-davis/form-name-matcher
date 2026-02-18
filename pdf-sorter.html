@@ -684,6 +684,9 @@
                             <label style="cursor:pointer; color:var(--button-primary);">
                                 <input type="radio" name="tickMode" value="add" disabled> Add Selection
                             </label>
+                            <label style="cursor:pointer; color:var(--button-warning);">
+                                <input type="radio" name="tickMode" value="auto" disabled> Auto (Col. 7 → dta)
+                            </label>
                         </div>
 
                         <!-- Tick Container -->
@@ -1565,10 +1568,13 @@
             } else {
                 // If enabling, restore state based on currently checked radio
                 const mode = document.querySelector('input[name="tickMode"]:checked').value;
-                const isRetain = (mode === 'retain');
-                if (!isRetain) {
+                const isDisabledMode = (mode === 'retain' || mode === 'auto');
+                if (!isDisabledMode) {
                     container.style.opacity = '1';
                     container.style.pointerEvents = 'auto';
+                } else {
+                    container.style.opacity = '0.5';
+                    container.style.pointerEvents = 'none';
                 }
             }
 
@@ -1737,8 +1743,9 @@
         document.querySelectorAll('input[name="tickMode"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 const container = document.getElementById('containerTicksB');
-                const isRetain = (e.target.value === 'retain');
-                if (isRetain) {
+                const val = e.target.value;
+                const isDisabledMode = (val === 'retain' || val === 'auto');
+                if (isDisabledMode) {
                     container.style.opacity = '0.5';
                     container.style.pointerEvents = 'none';
                 } else {
@@ -1991,126 +1998,195 @@
                                     const fields = form.getFields();
                                     const pageCount = pdfDoc.getPageCount();
 
-                                    // 1. Gather all CheckBox widgets on the last page
-                                    const lastPage = pdfDoc.getPage(pageCount - 1);
-                                    const lastPageAnnots = lastPage.node.Annots();
-                                    const allWidgets = []; // { field, x, y, name }
+                                    // Helper: Map Refs to Fields for quick lookup
+                                    const refToFieldMap = new Map();
+                                    fields.forEach(f => {
+                                        if (f.ref) refToFieldMap.set(f.ref.toString(), f);
+                                        const widgets = f.acroField.getWidgets();
+                                        widgets.forEach(w => {
+                                            if (w.ref) refToFieldMap.set(w.ref.toString(), f);
+                                        });
+                                    });
 
-                                    if (lastPageAnnots) {
-                                        // Map Refs to Fields
-                                        const checkboxes = fields.filter(f => f instanceof PDFLib.PDFCheckBox);
-                                        const refToFieldMap = new Map();
-                                        for (const field of checkboxes) {
-                                            if (field.ref) refToFieldMap.set(field.ref.toString(), field);
-                                            const widgets = field.acroField.getWidgets();
-                                            widgets.forEach(w => {
-                                                if (w.ref) refToFieldMap.set(w.ref.toString(), field);
-                                            });
-                                        }
+                                    // Helper: Get widgets from a specific page
+                                    function getWidgetsFromPage(pageIndex) {
+                                        const page = pdfDoc.getPage(pageIndex);
+                                        const annots = page.node.Annots();
+                                        const checkboxes = [];
+                                        const textFields = [];
+                                        if (annots) {
+                                            for (let i = 0; i < annots.size(); i++) {
+                                                const ref = annots.get(i);
+                                                const dict = pdfDoc.context.lookup(ref);
+                                                if (!(dict instanceof PDFLib.PDFDict)) continue;
+                                                const subtype = dict.get(PDFLib.PDFName.of('Subtype'));
+                                                if (subtype !== PDFLib.PDFName.of('Widget')) continue;
 
-                                        for (let i = 0; i < lastPageAnnots.size(); i++) {
-                                            const ref = lastPageAnnots.get(i);
-                                            const dict = pdfDoc.context.lookup(ref);
-                                            if (!(dict instanceof PDFLib.PDFDict)) continue;
-
-                                            const subtype = dict.get(PDFLib.PDFName.of('Subtype'));
-                                            if (subtype !== PDFLib.PDFName.of('Widget')) continue;
-
-                                            let matchedField = null;
-                                            const refStr = (ref instanceof PDFLib.PDFRef) ? ref.toString() : null;
-
-                                            if (refStr && refToFieldMap.has(refStr)) {
-                                                matchedField = refToFieldMap.get(refStr);
-                                            }
-
-                                            if (!matchedField) {
-                                                const parent = dict.get(PDFLib.PDFName.of('Parent'));
-                                                if (parent instanceof PDFLib.PDFRef && refToFieldMap.has(parent.toString())) {
-                                                    matchedField = refToFieldMap.get(parent.toString());
+                                                let matchedField = null;
+                                                const refStr = (ref instanceof PDFLib.PDFRef) ? ref.toString() : null;
+                                                if (refStr && refToFieldMap.has(refStr)) matchedField = refToFieldMap.get(refStr);
+                                                if (!matchedField) {
+                                                    const parent = dict.get(PDFLib.PDFName.of('Parent'));
+                                                    if (parent instanceof PDFLib.PDFRef && refToFieldMap.has(parent.toString())) {
+                                                        matchedField = refToFieldMap.get(parent.toString());
+                                                    }
                                                 }
-                                            }
-
-                                            if (matchedField && matchedField instanceof PDFLib.PDFCheckBox) {
-                                                const rectArr = dict.get(PDFLib.PDFName.of('Rect'));
-                                                if (rectArr instanceof PDFLib.PDFArray) {
-                                                    const x = rectArr.get(0).asNumber();
-                                                    const y = rectArr.get(1).asNumber();
-                                                    allWidgets.push({ field: matchedField, name: matchedField.getName(), x, y });
+                                                if (matchedField) {
+                                                    const rectArr = dict.get(PDFLib.PDFName.of('Rect'));
+                                                    if (rectArr instanceof PDFLib.PDFArray) {
+                                                        const x = rectArr.get(0).asNumber();
+                                                        const y = rectArr.get(1).asNumber();
+                                                        const widgetObj = { field: matchedField, name: matchedField.getName(), x, y };
+                                                        if (matchedField instanceof PDFLib.PDFCheckBox) checkboxes.push(widgetObj);
+                                                        else if (matchedField instanceof PDFLib.PDFTextField) textFields.push(widgetObj);
+                                                    }
                                                 }
                                             }
                                         }
+                                        return { checkboxes, textFields };
                                     }
 
-                                    // 2. Cluster Detection: Group widgets by Y-coordinate (tolerance: 20pt)
-                                    // First sort by Y ascending (bottom-up)
-                                    allWidgets.sort((a, b) => a.y - b.y);
-
-                                    const rows = [];
-                                    if (allWidgets.length > 0) {
-                                        let currentRow = [allWidgets[0]];
-                                        for (let i = 1; i < allWidgets.length; i++) {
-                                            if (Math.abs(allWidgets[i].y - currentRow[0].y) < 20) {
-                                                currentRow.push(allWidgets[i]);
-                                            } else {
-                                                rows.push(currentRow);
-                                                currentRow = [allWidgets[i]];
-                                            }
+                                    // Helper: Group widgets into rows
+                                    function clusterByY(widgets) {
+                                        if (widgets.length === 0) return [];
+                                        widgets.sort((a, b) => a.y - b.y);
+                                        const rows = [];
+                                        let currentRow = [widgets[0]];
+                                        for (let i = 1; i < widgets.length; i++) {
+                                            if (Math.abs(widgets[i].y - currentRow[0].y) < 20) currentRow.push(widgets[i]);
+                                            else { rows.push(currentRow); currentRow = [widgets[i]]; }
                                         }
                                         rows.push(currentRow);
+                                        return rows;
                                     }
 
-                                    // 3. Find the lowest row with ~6 items (the Office Use row)
-                                    let officeRow = rows.find(r => r.length === 6);
-                                    if (!officeRow) {
-                                        // Fallback: take the first row with 6+ (might be extra widgets)
-                                        officeRow = rows.find(r => r.length >= 6);
-                                    }
-
-                                    if (officeRow) {
-                                        // Sort this specific row by X (Left-to-Right)
-                                        officeRow.sort((a, b) => a.x - b.x);
-
-                                        // Deduplicate names if multiple widgets for same field
-                                        const deduplicated = [];
-                                        const seenNames = new Set();
-                                        for (const item of officeRow) {
-                                            if (!seenNames.has(item.name)) {
-                                                deduplicated.push(item);
-                                                seenNames.add(item.name);
+                                    // 1. GLOBAL CHECK: Is there ANY text in ANY row of Col 7 on Page 4? (Triggers 'dta')
+                                    let col7HasAnyText = false;
+                                    if (pageCount >= 4) {
+                                        const pg4 = getWidgetsFromPage(3); // Page 4
+                                        const tfRows = clusterByY(pg4.textFields);
+                                        for (const row of tfRows) {
+                                            row.sort((a, b) => b.x - a.x); // Rightmost
+                                            const col7Field = row[0];
+                                            let textValue = '';
+                                            try { textValue = (col7Field.field.getText() || '').trim(); } catch (err) { }
+                                            if (textValue !== '') {
+                                                col7HasAnyText = true;
+                                                break;
                                             }
                                         }
+                                    }
 
-                                        if (deduplicated.length >= 6) {
-                                            let tickedCount = 0;
-                                            let untickedCount = 0;
+                                    // 2. ADR TRIGGER: Check contacts (last page) and address (first page)
+                                    let adrTriggerFound = false;
+                                    let adrReason = [];
 
-                                            // We take the first 6 as the target fields (adr, brg, cmp, dta, phn, oth)
-                                            for (let i = 0; i < 6; i++) {
-                                                const box = deduplicated[i];
-                                                if (selectedTickIndices.includes(i)) {
-                                                    box.field.check();
-                                                    tickedCount++;
-                                                } else if (tickMode === 'force') {
-                                                    box.field.uncheck();
-                                                    untickedCount++;
+                                    // Check contacts on last page
+                                    const contactFields = ['ContactFirstName', 'ContactFamilyName', 'ContactPosition', 'ContactEmail', 'ContactPhone', 'ContactOtherPh'];
+                                    const lastPg = getWidgetsFromPage(pageCount - 1);
+                                    for (const tf of lastPg.textFields) {
+                                        if (contactFields.includes(tf.name)) {
+                                            let text = '';
+                                            try { text = (tf.field.getText() || '').trim(); } catch (e) { }
+                                            if (text !== '') {
+                                                adrTriggerFound = true;
+                                                adrReason.push('Contact');
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    // Check address on first page
+                                    if (!adrTriggerFound) {
+                                        const addressFields = ['AddAttn', 'AddLegalName', 'AddStreet1', 'AddStreet2', 'AddSuburb', 'AddCity', 'AddPostcode'];
+                                        const firstPg = getWidgetsFromPage(0);
+                                        for (const tf of firstPg.textFields) {
+                                            if (addressFields.includes(tf.name)) {
+                                                let text = '';
+                                                try { text = (tf.field.getText() || '').trim(); } catch (e) { }
+                                                if (text !== '') {
+                                                    adrTriggerFound = true;
+                                                    adrReason.push('Address');
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // 3. Identify all checkbox rows to be modified (on Page 4 AND Last Page)
+                                    const pagesToModify = new Set();
+                                    if (pageCount >= 4) pagesToModify.add(3); // Page 4
+                                    pagesToModify.add(pageCount - 1); // Last Page
+
+                                    let rowsModified = 0;
+
+                                    for (const pageIdx of pagesToModify) {
+                                        const isLastPage = (pageIdx === pageCount - 1);
+
+                                        // Specific requirement: 'Auto' mode ONLY ticks the last page.
+                                        if (tickMode === 'auto' && !isLastPage) continue;
+
+                                        const pg = getWidgetsFromPage(pageIdx);
+                                        const cbRows = clusterByY(pg.checkboxes);
+
+                                        for (const cbRow of cbRows) {
+                                            cbRow.sort((a, b) => a.x - b.x);
+                                            const deduplicated = [];
+                                            const seenNames = new Set();
+                                            for (const item of cbRow) {
+                                                if (!seenNames.has(item.name)) {
+                                                    deduplicated.push(item);
+                                                    seenNames.add(item.name);
                                                 }
                                             }
 
-                                            if (tickedCount > 0 || untickedCount > 0) {
-                                                // Update appearances ONLY for the checkboxes we touched
-                                                // to avoid crashing on "Rich Text" text fields elsewhere in the document.
-                                                officeRow.forEach(item => {
-                                                    try { item.field.defaultUpdateAppearances(); } catch (e) { }
-                                                });
+                                            if (deduplicated.length >= 6) {
+                                                let effectiveTickMode = tickMode;
+                                                let currentSelectedIndices = selectedTickIndices;
 
-                                                fileArrayBuffer = await pdfDoc.save({ updateFieldAppearances: false });
-                                                summaryRow.Message += ` [Updated: ${tickedCount} Checked, ${untickedCount} Unchecked]`;
+                                                if (tickMode === 'auto') {
+                                                    let autoIndices = [];
+                                                    if (col7HasAnyText) autoIndices.push(3); // dta
+                                                    if (adrTriggerFound) autoIndices.push(0); // adr
+
+                                                    if (autoIndices.length > 0) {
+                                                        effectiveTickMode = 'force';
+                                                        currentSelectedIndices = autoIndices;
+                                                    } else {
+                                                        effectiveTickMode = 'retain';
+                                                    }
+                                                }
+
+                                                if (effectiveTickMode !== 'retain') {
+                                                    let rowTicked = 0;
+                                                    let rowUnticked = 0;
+                                                    for (let i = 0; i < 6; i++) {
+                                                        const box = deduplicated[i];
+                                                        if (currentSelectedIndices.includes(i)) {
+                                                            box.field.check();
+                                                            rowTicked++;
+                                                        } else if (effectiveTickMode === 'force') {
+                                                            box.field.uncheck();
+                                                            rowUnticked++;
+                                                        }
+                                                    }
+                                                    if (rowTicked > 0 || rowUnticked > 0) {
+                                                        deduplicated.forEach(item => { try { item.field.defaultUpdateAppearances(); } catch (e) { } });
+                                                        rowsModified++;
+                                                    }
+                                                }
                                             }
-                                        } else {
-                                            summaryRow.Message += ` [Warning: Deduplicated row size ${deduplicated.length}, mismatch]`;
                                         }
-                                    } else {
-                                        summaryRow.Message += ` [Warning: No group of 6+ checkboxes found (Total on page: ${allWidgets.length})]`;
+                                    }
+
+                                    if (rowsModified > 0) {
+                                        fileArrayBuffer = await pdfDoc.save({ updateFieldAppearances: false });
+                                        let tags = [];
+                                        if (col7HasAnyText) tags.push('Col7');
+                                        if (adrTriggerFound) tags.push(adrReason.join('/'));
+                                        summaryRow.Message += ` [Auto: ${tags.join('+')} -> Ticked ${rowsModified} rows]`;
+                                    } else if (tickMode !== 'retain') {
+                                        summaryRow.Message += ` [Auto: No triggers found]`;
                                     }
 
                                 } catch (pdfLibErr) {

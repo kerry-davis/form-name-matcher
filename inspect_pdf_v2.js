@@ -1,86 +1,97 @@
-const { PDFDocument, PDFName, PDFRef, PDFDict, PDFArray } = require('pdf-lib');
 const fs = require('fs');
+const PDFLib = require('pdf-lib');
 
-async function run() {
-    try {
-        const data = fs.readFileSync('/home/pulsta/vscode/repo/form-name-matcher/BRUS-BLANK.pdf');
-        const pdfDoc = await PDFDocument.load(data);
-        const form = pdfDoc.getForm();
-        const fields = form.getFields();
-        const pageCount = pdfDoc.getPageCount();
-        const lastPage = pdfDoc.getPage(pageCount - 1);
+async function inspect() {
+    const data = fs.readFileSync('/home/pulsta/vscode/repo/form-name-matcher/BLANK.pdf');
+    const pdfDoc = await PDFLib.PDFDocument.load(data);
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
 
-        console.log(`File: BRUS-BLANK.pdf`);
-        console.log(`Pages: ${pageCount}`);
+    console.log(`PDF loaded. Total pages: ${pdfDoc.getPageCount()}`);
 
-        const lastPageAnnots = lastPage.node.Annots();
-        if (!lastPageAnnots) {
-            console.log("No annotations on last page.");
-            return;
-        }
+    // Target First Page
+    const pageIdx = 0;
+    const page = pdfDoc.getPage(pageIdx);
+    const annots = page.node.Annots();
 
-        const candidates = [];
-        const refToFieldMap = new Map();
-
-        // Build map for quick lookup
-        fields.forEach(field => {
-            if (field.ref) refToFieldMap.set(field.ref.toString(), field);
-            // Some fields have multiple widgets
-            const widgets = field.acroField.getWidgets();
-            widgets.forEach(w => {
-                if (w.ref) refToFieldMap.set(w.ref.toString(), field);
-            });
+    const refToFieldMap = new Map();
+    fields.forEach(f => {
+        if (f.ref) refToFieldMap.set(f.ref.toString(), f);
+        f.acroField.getWidgets().forEach(w => {
+            if (w.ref) refToFieldMap.set(w.ref.toString(), f);
         });
+    });
 
-        for (let i = 0; i < lastPageAnnots.size(); i++) {
-            const ref = lastPageAnnots.get(i);
+    console.log(`\n--- INSPECTING PAGE ${pageIdx + 1} ---`);
+    const results = [];
+
+    if (annots) {
+        for (let i = 0; i < annots.size(); i++) {
+            const ref = annots.get(i);
             const dict = pdfDoc.context.lookup(ref);
-            if (!(dict instanceof PDFDict)) continue;
+            if (!(dict instanceof PDFLib.PDFDict)) continue;
 
-            const subtype = dict.get(PDFName.of('Subtype'));
-            if (subtype !== PDFName.of('Widget')) continue;
+            const subtype = dict.get(PDFLib.PDFName.of('Subtype'));
+            if (subtype !== PDFLib.PDFName.of('Widget')) continue;
 
-            let matchedField = null;
-            const refStr = ref instanceof PDFRef ? ref.toString() : null;
+            const rectArr = dict.get(PDFLib.PDFName.of('Rect'));
+            if (!(rectArr instanceof PDFLib.PDFArray)) continue;
+            const x = rectArr.get(0).asNumber();
+            const y = rectArr.get(1).asNumber();
 
-            if (refStr && refToFieldMap.has(refStr)) {
-                matchedField = refToFieldMap.get(refStr);
-            }
-
-            if (!matchedField) {
-                const parent = dict.get(PDFName.of('Parent'));
-                if (parent instanceof PDFRef && refToFieldMap.has(parent.toString())) {
-                    matchedField = refToFieldMap.get(parent.toString());
+            let field = null;
+            const refStr = (ref instanceof PDFLib.PDFRef) ? ref.toString() : null;
+            if (refStr && refToFieldMap.has(refStr)) field = refToFieldMap.get(refStr);
+            if (!field) {
+                const parent = dict.get(PDFLib.PDFName.of('Parent'));
+                if (parent instanceof PDFLib.PDFRef && refToFieldMap.has(parent.toString())) {
+                    field = refToFieldMap.get(parent.toString());
                 }
             }
 
-            if (matchedField && matchedField.constructor.name === 'PDFCheckBox') {
-                const rectArr = dict.get(PDFName.of('Rect'));
-                if (rectArr instanceof PDFArray) {
-                    const x = rectArr.get(0).asNumber();
-                    const y = rectArr.get(1).asNumber();
-                    candidates.push({ name: matchedField.getName(), x, y });
+            if (field) {
+                let text = null;
+                if (field instanceof PDFLib.PDFTextField) {
+                    try {
+                        text = field.getText();
+                    } catch (e) {
+                        text = "[RichText / Error reading]";
+                    }
                 }
+                results.push({
+                    name: field.getName(),
+                    type: field.constructor.name,
+                    x, y,
+                    text: text
+                });
             }
         }
-
-        console.log(`Total Checkboxes on Last Page: ${candidates.length}`);
-
-        // Sort just like the app
-        candidates.sort((a, b) => {
-            const yDiff = Math.abs(a.y - b.y);
-            if (yDiff < 10) return a.x - b.x;
-            return a.y - b.y;
-        });
-
-        console.log("Sorted Candidates (Index, Name, X, Y):");
-        candidates.forEach((c, idx) => {
-            console.log(`${idx}: ${c.name} | X: ${c.x.toFixed(2)} | Y: ${c.y.toFixed(2)}`);
-        });
-
-    } catch (err) {
-        console.error("Error:", err);
     }
+
+    // Cluster by Y
+    results.sort((a, b) => b.y - a.y); // Top to bottom
+    const rows = [];
+    if (results.length > 0) {
+        let currentRow = [results[0]];
+        for (let i = 1; i < results.length; i++) {
+            if (Math.abs(results[i].y - currentRow[0].y) < 20) {
+                currentRow.push(results[i]);
+            } else {
+                rows.push(currentRow);
+                currentRow = [results[i]];
+            }
+        }
+        rows.push(currentRow);
+    }
+
+    rows.forEach((row, idx) => {
+        row.sort((a, b) => b.y - a.y || a.x - b.x);
+        row.forEach(f => {
+            if (f.type === 'PDFTextField') {
+                console.log(`Name: ${f.name.padEnd(30)} | Text: "${f.text || ''}" | Y: ${f.y.toFixed(1)}`);
+            }
+        });
+    });
 }
 
-run();
+inspect().catch(console.error);
