@@ -68,12 +68,12 @@ Notes:
     - **Category C**: Assigned if: Page 1 has editable widgets **BUT** the "Office Use" section is missing, invalid, or locked.
 - **B-Category Modification**: When moving Category B files, the system **optionally** injects checkbox states.
     - **Default**: Retains existing PDF ticks (No modification).
-    - **Override Mode (Force/Add)**: If enabled by user, it identifies matching rows using a spatial clustering algorithm (grouping widgets by Y-coordinate with 20pt tolerance). It then ticks selected indices (default: `dta`) and optionally unticks others based on horizontal (X) sorting within each detected row.
+    - **Override Mode (Force/Add)**: If enabled by user, it identifies matching rows using a spatial clustering algorithm (grouping widgets by Y-coordinate with 20pt tolerance). It then ticks selected indices (User must select; no default auto-tick is applied in Force/Add modes) and optionally unticks others based on horizontal (X) sorting within each detected row.
     - **Auto Mode**: Scans three potential trigger locations on a per-file basis:
-        1. **Page 4 (Index 3)**: Checks the "Errors / omissions" column (Column 7). If text is found, it triggers a **`dta`** tick (Index 3) on the last page.
+        1. **Page 4 & 5 (Index 3 & 4)**: Checks the "Errors / omissions" column (Column 7). If text is found on either page (Page 5 exists in ~5% of forms), it triggers a **`dta`** tick (Index 3) on the last page.
         2. **Last Page**: Checks contact fields (`ContactFirstName`, `ContactFamilyName`, `ContactPosition`, `ContactEmail`, `ContactPhone`, `ContactOtherPh`). If text is found, it triggers an **`adr`** tick (Index 0) on the last page.
         3. **First Page**: Checks address fields (`AddAttn`, `AddLegalName`, `AddStreet1`, `AddStreet2`, `AddSuburb`, `AddCity`, `AddPostcode`). If text is found, it also triggers an **`adr`** tick (Index 0) on the last page.
-        - **Execution**: Ticks are applied ONLY to the **Last Page** office-use checkboxes. If multiple triggers are met, all corresponding boxes are ticked. If no text is found in any location, original states are retained.
+        - **Execution**: Ticks (whether triggered by **Auto Mode** detection or manual **Force/Add Mode** override) are applied ONLY to the **Last Page** office-use checkboxes. If multiple triggers are met (Auto) or multiple indices are selected (Force/Add), all corresponding boxes on the last page are updated.
 - **C-Category Repair**: When moving Category C files, the system **optionally** repairs non-editable "Office Use" sections.
     - **Input**: User provides a "Template PDF" (Category B) containing correct widgets.
     - **Analysis**: System extracts widget coordinates (X, Y, W, H) and names from the template.
@@ -210,6 +210,7 @@ Notes:
 - **Phase Flow**: 
     - **Direct Flow**: "Proceed to Move" button after Phase 1 analysis switches to Phase 2 and auto-populates CSV data.
     - **Source Inheritance**: Phase 2 inherits the source folder from Phase 1 when using direct flow.
+    - **Locked State**: Phase 2 controls (CSV inputs, Tick modes, Process checkboxes) remain **inactive/disabled** until BOTH a Source Folder and a Destination Folder are selected. This enforces a strict initialization workflow.
     - **CSV Override**: Users can still manually upload CSVs to override auto-populated data for human review/editing.
 - **Phase 2 Collapsible Sections**: Rows A, B, and C are collapsible accordion panels. Toggling reduces visual clutter, hiding CSV controls and options while keeping the header visible. The state (expanded/collapsed) is currently transient (not persisted).
 - **Log Interactivity**: Move/Copy logs retain a reference to the destination `FileSystemHandle`, enabling a "Ctrl+Click" action to instantly open the processed PDF for verification.

@@ -377,7 +377,7 @@
 
             <!-- Single Destination Folder Picker -->
             <div class="button-container" style="margin-top: 15px;">
-                <button id="selectDestRootBtn" class="button btn-primary" disabled>2. Select Destination Folder</button>
+                <button id="selectDestRootBtn" class="button btn-primary">2. Select Destination Folder</button>
                 <select id="companionConflictSelect" class="button"
                     style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color);"
                     disabled>
@@ -685,7 +685,9 @@
                                 <input type="radio" name="tickMode" value="add" disabled> Add Selection
                             </label>
                             <label style="cursor:pointer; color:var(--button-warning);">
-                                <input type="radio" name="tickMode" value="auto" disabled> Auto (Col. 7 → dta)
+                                <input type="radio" name="tickMode" value="auto" disabled> Auto (Pg 4/5 extra data /
+                                Address →
+                                dta/adr)
                             </label>
                         </div>
 
@@ -695,7 +697,7 @@
                             <label><input type="checkbox" class="tick-opt-b" value="0"> adr</label>
                             <label><input type="checkbox" class="tick-opt-b" value="1"> brg</label>
                             <label><input type="checkbox" class="tick-opt-b" value="2"> cmp</label>
-                            <label><input type="checkbox" class="tick-opt-b" value="3" checked> dta</label>
+                            <label><input type="checkbox" class="tick-opt-b" value="3"> dta</label>
                             <label><input type="checkbox" class="tick-opt-b" value="4"> phn</label>
                             <label><input type="checkbox" class="tick-opt-b" value="5"> oth</label>
                         </div>
@@ -883,20 +885,6 @@
                 sourceDirHandle2 = sourceDirHandle;
                 document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name} (from Phase 1)`;
 
-                // Enable CSV Inputs
-                ['A', 'B', 'C'].forEach(cat => {
-                    const lbl = document.getElementById(`lblCsv${cat}`);
-                    const inp = document.getElementById(`csvInput${cat}`);
-                    if (lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
-                    if (inp) { inp.disabled = false; }
-                });
-
-                // Enable Destination Folder picker
-                document.getElementById('selectDestRootBtn').disabled = false;
-                document.getElementById('companionConflictSelect').disabled = false;
-
-                // Enable Controls
-                setPhase2ControlsState(true);
                 checkMoveReady();
             }
 
@@ -1435,18 +1423,10 @@
                 } else {
                     display.textContent = 'No files in this category';
                 }
-
-                // Enable CSV inputs for override
-                if (lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
-                if (inp) { inp.disabled = false; }
             });
-
-            // Enable controls
-            document.getElementById('selectDestRootBtn').disabled = false;
-            document.getElementById('companionConflictSelect').disabled = false;
-            setPhase2ControlsState(true);
             checkMoveReady();
         });
+
 
         document.getElementById('resetBtn1').addEventListener('click', () => {
             allFiles = [];
@@ -1555,6 +1535,15 @@
                 const copyEl = document.getElementById(`copyMode${c}`);
                 if (processEl) processEl.disabled = !enabled;
                 if (copyEl) copyEl.disabled = !enabled;
+
+                // CSV Inputs
+                const lbl = document.getElementById(`lblCsv${c}`);
+                const inp = document.getElementById(`csvInput${c}`);
+                if (lbl) {
+                    lbl.style.opacity = enabled ? '1' : '0.5';
+                    lbl.style.pointerEvents = enabled ? 'auto' : 'none';
+                }
+                if (inp) inp.disabled = !enabled;
             });
 
             // Tick Mode Radios
@@ -1578,9 +1567,15 @@
                 }
             }
 
+            // Companion Conflict Select
+            document.getElementById('companionConflictSelect').disabled = !enabled;
+
             // Enable Repair Checkbox if conditions met
             if (enabled) {
                 checkRepairAvailability();
+            } else {
+                document.getElementById('repairModeC').disabled = true;
+                document.getElementById('repairTemplateContainer').style.display = 'none';
             }
         }
 
@@ -1588,21 +1583,6 @@
             try {
                 sourceDirHandle2 = await window.showDirectoryPicker();
                 document.getElementById('sourcePathDisplay2').textContent = `Selected: ${sourceDirHandle2.name}`;
-
-                // Enable CSV Inputs
-                ['A', 'B', 'C'].forEach(cat => {
-                    const lbl = document.getElementById(`lblCsv${cat}`);
-                    const inp = document.getElementById(`csvInput${cat}`);
-                    if (lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = 'auto'; }
-                    if (inp) { inp.disabled = false; }
-                });
-
-                // Enable Destination Folder picker
-                document.getElementById('selectDestRootBtn').disabled = false;
-                document.getElementById('companionConflictSelect').disabled = false;
-
-                // Enable Controls
-                setPhase2ControlsState(true);
 
                 checkMoveReady();
             } catch (err) { console.error(err); }
@@ -1804,6 +1784,11 @@
         });
 
         function checkMoveReady() {
+            const bothFoldersSelected = !!sourceDirHandle2 && !!destRootHandle;
+
+            // Enforce control states based on both folders being selected
+            setPhase2ControlsState(bothFoldersSelected);
+
             if (!sourceDirHandle2) {
                 document.getElementById('executeMoveBtn').disabled = true;
                 return;
@@ -2060,11 +2045,15 @@
                                         return rows;
                                     }
 
-                                    // 1. GLOBAL CHECK: Is there ANY text in ANY row of Col 7 on Page 4? (Triggers 'dta')
+                                    // 1. GLOBAL CHECK: Is there ANY text in ANY row of Col 7 on Page 4 (and Page 5)? (Triggers 'dta')
                                     let col7HasAnyText = false;
-                                    if (pageCount >= 4) {
-                                        const pg4 = getWidgetsFromPage(3); // Page 4
-                                        const tfRows = clusterByY(pg4.textFields);
+                                    const col7Pages = [];
+                                    if (pageCount >= 4) col7Pages.push(3); // Page 4
+                                    if (pageCount >= 5) col7Pages.push(4); // Page 5
+
+                                    for (const pgIdx of col7Pages) {
+                                        const pgData = getWidgetsFromPage(pgIdx);
+                                        const tfRows = clusterByY(pgData.textFields);
                                         for (const row of tfRows) {
                                             row.sort((a, b) => b.x - a.x); // Rightmost
                                             const col7Field = row[0];
@@ -2075,6 +2064,7 @@
                                                 break;
                                             }
                                         }
+                                        if (col7HasAnyText) break;
                                     }
 
                                     // 2. ADR TRIGGER: Check contacts (last page) and address (first page)
@@ -2113,19 +2103,13 @@
                                         }
                                     }
 
-                                    // 3. Identify all checkbox rows to be modified (on Page 4 AND Last Page)
+                                    // 3. Identify all checkbox rows to be modified (ONLY on Last Page)
                                     const pagesToModify = new Set();
-                                    if (pageCount >= 4) pagesToModify.add(3); // Page 4
                                     pagesToModify.add(pageCount - 1); // Last Page
 
                                     let rowsModified = 0;
 
                                     for (const pageIdx of pagesToModify) {
-                                        const isLastPage = (pageIdx === pageCount - 1);
-
-                                        // Specific requirement: 'Auto' mode ONLY ticks the last page.
-                                        if (tickMode === 'auto' && !isLastPage) continue;
-
                                         const pg = getWidgetsFromPage(pageIdx);
                                         const cbRows = clusterByY(pg.checkboxes);
 
