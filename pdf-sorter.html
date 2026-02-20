@@ -2049,7 +2049,7 @@
                                     let col7HasAnyText = false;
                                     const col7Pages = [];
                                     if (pageCount >= 4) col7Pages.push(3); // Page 4
-                                    if (pageCount >= 5) col7Pages.push(4); // Page 5
+                                    if (pageCount === 7) col7Pages.push(4); // Page 5
 
                                     for (const pgIdx of col7Pages) {
                                         const pgData = getWidgetsFromPage(pgIdx);
@@ -2072,7 +2072,10 @@
                                     let adrReason = [];
 
                                     // Check contacts on last page
-                                    const contactFields = ['ContactFirstName', 'ContactFamilyName', 'ContactPosition', 'ContactEmail', 'ContactPhone', 'ContactOtherPh'];
+                                    const contactFields = [
+                                        'ContactFirstName', 'ContactFamilyName', 'ContactPosition', 'ContactEmail', 'ContactPhone', 'ContactOtherPh',
+                                        'LogisticsFirstName', 'LogisticsLastName', 'LogisticsContactTitle', 'LogisticsContactEmail', 'LogisticsContactMobilePhone'
+                                    ];
                                     const lastPg = getWidgetsFromPage(pageCount - 1);
                                     for (const tf of lastPg.textFields) {
                                         if (contactFields.includes(tf.name)) {
@@ -2085,7 +2088,6 @@
                                             }
                                         }
                                     }
-
                                     // Check address on first page
                                     if (!adrTriggerFound) {
                                         const addressFields = ['AddAttn', 'AddLegalName', 'AddStreet1', 'AddStreet2', 'AddSuburb', 'AddCity', 'AddPostcode'];
